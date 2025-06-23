@@ -1,0 +1,31 @@
+name: relavdep
+channels:
+  - pytorch
+  - nvidia
+  - pyg
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.8
+  - pytorch=2.1.0
+  - pytorch-cuda=11.8
+  - numpy
+  - pandas
+  - biopython
+  - biopandas
+  - tensorboard
+  - matplotlib
+  - seaborn
+  - tqdm
+  - numba
+  - h5py
+  - scipy
+  - pyg
+  - pip
+  - pip:
+      - ray
+      - fair-esm
+      - einops
+      - logomaker
+      - https://data.pyg.org/whl/torch-2.1.0%2Bcu118/torch_cluster-1.6.3%2Bpt21cu118-cp38-cp38-linux_x86_64.whl
+      - https://data.pyg.org/whl/torch-2.1.0%2Bcu118/torch_scatter-2.1.2%2Bpt21cu118-cp38-cp38-linux_x86_64.whl
