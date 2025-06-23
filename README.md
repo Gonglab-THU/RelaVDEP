@@ -17,6 +17,8 @@ conda env create -f environment.yml
 conda activate relavdep
 ```
 
+Next, download the model parameters (`params`) [here]() and put it in `relavdep/data` directory.
+
 ## Usage
 
 ### Step 1: Process data
@@ -80,7 +82,7 @@ Here, `n_layer` is the parameter used in the reward model training process.
 Construct a mutant library that balances fitness and diversity, then use multiple filters to screen candidates for wet-lab experimental validation.
 
 #### 1. Generate DHR embeddings
-Before executing this step, please install [Dense-Homolog-Retrieval](https://github.com/ml4bio/Dense-Homolog-Retrieval) at first. Next,download the checkpoint file (`dhr2_ckpt.zip`) and unzip it in `Dense-Homolog-Retrieval` directory to obtain `dhr_cencoder.pt` and `dhr_qencoder.pt`. Then, generate sequence embeddings for all mutants as follows:
+Before executing this step, please install [Dense-Homolog-Retrieval](https://github.com/ml4bio/Dense-Homolog-Retrieval) at first. Next, download the checkpoint file (`dhr2_ckpt.zip`) and unzip it in `Dense-Homolog-Retrieval` directory to obtain `dhr_cencoder.pt` and `dhr_qencoder.pt`. Then, generate sequence embeddings for all mutants as follows:
 ```
 cd evaluate
 conda activate fastMSA
