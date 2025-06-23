@@ -71,6 +71,7 @@ Arguments:
 
 Example:
 ```
+cd relavdep
 python run.py --fasta data/fasta/TARGET.fasta --rm_params supervised/TARGET/TARGET.pth --rm_type SmallFitness --n_layer 5 --restraint data/restraints/TARGET.npz --output tasks/TARGET --n_gpus 4 --no_buffer 
 ```
 Here, `n_layer` is the parameter used in the reward model training process.
