@@ -9,7 +9,7 @@ RelaVDEP is a model-based RL framework specifically designed to optimize protein
 ## Installation
 We recommend using conda to install the dependencies.
 ```
-git clone https://github.com
+git clone https://github.com/Gonglab-THU/RelaVDEP.git
 
 # create the conda environment
 cd RelaVDEP
