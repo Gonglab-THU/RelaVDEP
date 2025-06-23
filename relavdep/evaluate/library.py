@@ -9,13 +9,15 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import sys
+sys.path.append('..')
+from utils import *
 from collections import Counter
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
 from scipy.stats import binned_statistic_2d
 from scipy.stats import entropy
-from utils import *
 
 parser = argparse.ArgumentParser(description='Construct mutant library')
 parser.add_argument('--fasta', type=str, required=True, help='Protein sequence')
@@ -24,6 +26,7 @@ parser.add_argument('--output', type=str, required=True, help='Output directory'
 
 parser.add_argument('--cutoff', type=float, default=0, help='Fitness cutoff (default: %(default)s)')
 parser.add_argument('--size', type=int, default=10, help='Mutant library size (default: %(default)s)')
+parser.add_argument('--nbins', type=int, default=50, help='Number of 2D histogram bins (default: %(default)s)')
 parser.add_argument('--seed', type=int, default=42, help='Random seed (default: %(default)s)')
 parser.add_argument('--n_cpu', type=int, default=10, help='Number of CPUs used in parallel (default: %(default)s)')
 args = parser.parse_args()
@@ -203,7 +206,7 @@ x = tsne_result[:, 0]
 y = tsne_result[:, 1]
 z = sele_fitness
 
-stat, x_edges, y_edges, binnumber = binned_statistic_2d(x, y, z, statistic='mean', bins=100)
+stat, x_edges, y_edges, binnumber = binned_statistic_2d(x, y, z, statistic='mean', bins=args.nbins)
 plt.imshow(np.flipud(stat.T), extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], 
            cmap='RdBu_r', aspect='auto', interpolation='nearest', alpha=0.8)
 
@@ -226,13 +229,13 @@ library_fitness = list(library['fitness'])
 library_diversity, _, library_matrix, mutation_pos = objective_function(library_sequences, library_fitness, best_lam)
 mutation_df = pd.DataFrame(library_matrix, columns=aa_list)
 
-fig_length = max(len(mutation_pos) // 3, 10)
-logo = logomaker.Logo(mutation_df, color_scheme='NajafabadiEtAl2017', 
-                      shade_below=0.5, fade_below=0.5, figsize=([fig_length, 3]))
+fig_length = max(len(mutation_pos) // 3, 12)
+logo = logomaker.Logo(
+    mutation_df, color_scheme='NajafabadiEtAl2017', 
+    shade_below=0.5, fade_below=0.5, figsize=([fig_length, 3])
+)
 
-plt.title("Mutant library (diversity={:.2f}, fitness={:.2f}, lambda={:.2f})".format(
-    library_diversity, np.mean(library_fitness), best_lam))
-
+plt.title("Mutant library (diversity={:.2f}, fitness={:.2f})".format(library_diversity, np.mean(library_fitness)))
 plt.xlabel("Residue index")
 plt.xticks(np.arange(len(mutation_pos)), mutation_pos, rotation=45)
 plt.ylabel("Frequency")

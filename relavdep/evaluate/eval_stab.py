@@ -28,7 +28,7 @@ selected_names = list(library['mutant'])
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 print("1. Initialize SPIRED-Stab...")
-base_model = BaseModel(params_dir='../data/params', device=device)
+base_model = BaseModel(data_dir='../data/params', device=device)
 stab_model = StabModel(node_dim = 32, num_layer = 3, n_head = 8, pair_dim = 64)
 stab_params = torch.load('../data/params/SPIRED-Stab.pth').copy()
 best_dict = {k.split('Stab.')[-1]: v for k, v in stab_params.items() if k.startswith('Stab')}
