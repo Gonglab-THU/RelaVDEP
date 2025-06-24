@@ -17,7 +17,7 @@ conda env create -f environment.yml
 conda activate relavdep
 ```
 
-Next, download the model parameters (`params`) [here](https://zenodo.org/doi/10.5281/zenodo.10809439) and put it in `relavdep/data` directory.
+Next, download the model parameters (`params`) [here](https://zenodo.org/doi/10.5281/zenodo.15720582) and put it in `relavdep/data` directory.
 
 ## Usage
 
