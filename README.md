@@ -117,6 +117,9 @@ python eval_stab.py --fasta ../data/fasta/TARGET.fasta --library ../tasks/TARGET
 ```
 The `library_stab.csv` is the final result file. Additionally, we recommend installing [ESMFold](https://www.science.org/doi/10.1126/science.ade2574)/[OpenFold](https://www.nature.com/articles/s41592-024-02272-z) as extra filters to further enhance the reliability of evaluation results. Here, we provide scripts (`eval_esmfold.py/eval_openfold.py`) for ESMFold/OpenFold inference in `evaluate` directory.
 
+## Reference
+[Accelerating Virtual Directed Evolution of Proteins via Reinforcement Learning](https://doi.org/10.1101/2025.06.25.661516)
+
 ## Acknowledgements
 We adapted some codes from SPIRED-Fitness, OpenFold and ESMFold. We thank the authors for their impressive work.
 1. Chen, Y., Xu, Y., Liu, D., Xing, Y., & Gong, H. (2024). An end-to-end framework for the prediction of protein structure and fitness from single sequence. Nature Communications, 15(1), 7400. doi:10.1038/s41467-024-51776-x
