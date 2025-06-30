@@ -121,7 +121,8 @@ The `library_stab.csv` is the final result file. Additionally, we recommend inst
 [Accelerating Virtual Directed Evolution of Proteins via Reinforcement Learning](https://doi.org/10.1101/2025.06.25.661516)
 
 ## Acknowledgements
-We adapted some codes from SPIRED-Fitness, OpenFold and ESMFold. We thank the authors for their impressive work.
+We adapted some codes from SPIRED-Fitness, OpenFold, ESMFold and MuZero. We thank the authors for their impressive work.
 1. Chen, Y., Xu, Y., Liu, D., Xing, Y., & Gong, H. (2024). An end-to-end framework for the prediction of protein structure and fitness from single sequence. Nature Communications, 15(1), 7400. doi:10.1038/s41467-024-51776-x
 2. Ahdritz, G., Bouatta, N., Floristean, C., Kadyan, S., Xia, Q., Gerecke, W., … AlQuraishi, M. (2024). OpenFold: retraining AlphaFold2 yields new insights into its learning mechanisms and capacity for generalization. Nature Methods, 21(8), 1514–1524. doi:10.1038/s41592-024-02272-z
 3. Lin, Z., Akin, H., Rao, R., Hie, B., Zhu, Z., Lu, W., … Rives, A. (2023). Evolutionary-scale prediction of atomic-level protein structure with a language model. Science (New York, N.Y.), 379(6637), 1123–1130. doi:10.1126/science.ade2574.
+4. Werner, D., Aurèle H. (2019). MuZero General: Open Reimplementation of MuZero. https://github.com/werner-duvaud/muzero-general
