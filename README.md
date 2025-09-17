@@ -30,7 +30,7 @@ Select the appropriate model type and fine-tune the reward model using the mutan
 ### Step 3: Run RelaVDEP
 Before training, please check if the necessary files exist:
 
-- `TARGE.fasta`: Protein sequence
+- `TARGET.fasta`: Protein sequence
 - `TARGET.npz`: Mutation site constraint
 - `TARGET.csv`: Mutation data
 - `TARGET.pth`: Parameters of the fine-tuned reward model
@@ -125,4 +125,5 @@ We adapted some codes from SPIRED-Fitness, OpenFold, ESMFold and MuZero. We than
 1. Chen, Y., Xu, Y., Liu, D., Xing, Y., & Gong, H. (2024). An end-to-end framework for the prediction of protein structure and fitness from single sequence. Nature Communications, 15(1), 7400. doi:10.1038/s41467-024-51776-x
 2. Ahdritz, G., Bouatta, N., Floristean, C., Kadyan, S., Xia, Q., Gerecke, W., … AlQuraishi, M. (2024). OpenFold: retraining AlphaFold2 yields new insights into its learning mechanisms and capacity for generalization. Nature Methods, 21(8), 1514–1524. doi:10.1038/s41592-024-02272-z
 3. Lin, Z., Akin, H., Rao, R., Hie, B., Zhu, Z., Lu, W., … Rives, A. (2023). Evolutionary-scale prediction of atomic-level protein structure with a language model. Science (New York, N.Y.), 379(6637), 1123–1130. doi:10.1126/science.ade2574.
+
 4. Werner, D., Aurèle H. (2019). MuZero General: Open Reimplementation of MuZero. https://github.com/werner-duvaud/muzero-general
