@@ -1,8 +1,9 @@
 # RelaVDEP
+Reinforcement Learning Assisted Directed Evolution for Proteins
 
 ## Introduction
 
-RelaVDEP is a model-based RL framework specifically designed to optimize protein functions through a virtual DE process. The framework integrates a high-precision pre-trained protein fitness predictor as its reward function and employs a graph neural network (GNN) architecture to explicitly encode the structure-aware inter-residue relationships. Built with a distributed computational architecture, RelaVDEP supports a parallelized training process. Additionally, a multi-objective optimization strategy is designed to construct the mutant library that systematically balances functional fitness and sequence diversity.
+RelaVDEP is a model-based Reinforcement Learning framework specifically designed to optimize protein functions through a virtual Directed Evolution process. The framework integrates a high-precision pre-trained protein fitness predictor as its reward model and employs a Graph Neural Network architecture to explicitly encode the structure-aware inter-residue relationships. Built with a distributed computational architecture, RelaVDEP supports a parallelized training process. Additionally, a multi-objective optimization strategy is designed to construct the mutant library that systematically balances functional fitness and sequence diversity.
 
 ![](figures/RelaVDEP.svg "Dynamics path")
 
@@ -10,120 +11,80 @@ RelaVDEP is a model-based RL framework specifically designed to optimize protein
 We recommend using conda to install the dependencies.
 ```
 git clone https://github.com/Gonglab-THU/RelaVDEP.git
-
-# create the conda environment
 cd RelaVDEP
 conda env create -f environment.yml
 conda activate relavdep
 ```
 
-Next, download the model parameters (`params`) [here](https://zenodo.org/doi/10.5281/zenodo.15720582) and put it in `relavdep/data` directory.
+## Data Access
+Download ESM-2 and SPIRED-Fitness model parameters by running the following:
+```
+# Download zip archive
+curl -o models.zip https://zenodo.org/records/15720583/files/params.zip?download=1
+# Unpack and remove zip archive
+unzip models.zip -d models/
+rm models.zip
+```
 
 ## Usage
 
-### Step 1: Process data
-Prepare the wild-type protein sequence (FASTA) and mutation data (CSV). For detailed instructions, see `notebook/1_prepare.ipynb`.
+### Step 1: Data Preparation
+Please strictly refer to `TARGET.fasta` and `TARGET.csv` in the `relavdep/data/` directory for target protein sequence and mutation data preparation. Here and below, `TARGET` refers to the target protein name.
 
-### Step 2: Fine-tune reward model
-Select the appropriate model type and fine-tune the reward model using the mutant data. For detailed instructions, see `notebook/2_train_rm.ipynb`.
+### Step 2: Reward Model Preparation
 
-### Step 3: Run RelaVDEP
-Before training, please check if the necessary files exist:
+Supervised fine-tune the reward model via:
 
-- `TARGET.fasta`: Protein sequence
-- `TARGET.npz`: Mutation site constraint
-- `TARGET.csv`: Mutation data
-- `TARGET.pth`: Parameters of the fine-tuned reward model
-
-Here, `TARGET` refers to the example target protein name. Then use the RelaVDEP to evolve the target protein. 
-
-Arguments:
 ```
--h, --help            show this help message and exit
---fasta FASTA         Protein sequence
---rm_params RM_PARAMS
-                    Supervised fine-tuned reward model parameters
---rm_type {SmallFitness,LargeFitness,SmallStab,LargeStab}
-                    Type of the reward model (default: SmallFitness)
---n_layer N_LAYER     Number of downstream MLP layers (default: 1)
---restraint RESTRAINT
-                    Restraint file (.npz format)
---data_dir DATA_DIR   Directory for model parameters (default: data/params)
---output OUTPUT       Output directory (default: tasks)
---temp_dir TEMP_DIR   Temporary directory for spilling object store (default: /tmp/ray)
---max_mut MAX_MUT     Maximum mutation counts (default: 4)
---n_players N_PLAYERS
-                    Number of self-play workers (default: 6)
---n_sim N_SIM         Number of MCTS simulations (default: 1200)
---train_delay TRAIN_DELAY
-                    Training delay (default: 2)
---n_gpus N_GPUS       Number of GPUs (default: 1)
---batch_size BATCH_SIZE
-                    Batch size for training (default: 32)
---seed SEED           Random seed (default: 0)
---no_buffer           Skip saving replay buffer during training (default: False)
---unroll_steps UNROLL_STEPS
-                    Number of unroll steps (default: None)
---td_steps TD_STEPS   Number of td steps (default: None)
---init_checkpoint INIT_CHECKPOINT
-                    Initialized checkpoint (default: None)
---init_buffer INIT_BUFFER
-                    Initialized replay buffer (default: None)
+python 1_supervised_training.py --fasta TARGET.fasta --data TARGET.csv --output outputs/TARGET
+```
+Run `python 1_supervised_training.py -h` to view all optional arguments. Upon completion, the following information and files will be obtained:
+
+- Parameters to be used in Step 3:
+  - `rm_type`: Type of the reward model (e.g., 'SmallFitness')
+  - `n_layer` (possible): MLP Layer Count (Used only if applicable)
+  - `TARGET.pth`: Parameters of the trained reward model
+  - `TARGET.npz`: Mutation site constraints
+- Parameter to be used in Step 4:
+  - `cutoff`: Fitness cutoff value of the target protein
+
+### Step 3: Virtual Directed Evolution
+Apply the RelaVDEP model to evolve the target protein via:
+
+```
+python 2_directed_evolution.py --fasta TARGET.fasta --rm_params TARGET.pth --constraint TARGET.npz --output outputs/TARGET --rm_type rm_type --n_layer n_layer --no_buffer
 ```
 
-Example:
-```
-cd relavdep
-python run.py --fasta data/fasta/TARGET.fasta --rm_params supervised/TARGET/TARGET.pth --rm_type SmallFitness --n_layer 5 --restraint data/restraints/TARGET.npz --output tasks/TARGET --n_gpus 4 --no_buffer 
-```
-Here, `n_layer` is the parameter used in the reward model training process.
+If the best MLP layer count was not obtained in the previous step, the `--n_layer` argument is not required. Additionally, it is recommended to use `--no-buffer` to improve operational efficiency.
 
-### Step 4: Mutant library
-Construct a mutant library that balances fitness and diversity, then use multiple filters to screen candidates for wet-lab experimental validation.
+Run `python 2_directed_evolution.py -h` to get optional arguments. After completing this step, the following files will be obtained:
 
-#### 1. Generate DHR embeddings
-Before executing this step, please install [Dense-Homolog-Retrieval](https://github.com/ml4bio/Dense-Homolog-Retrieval) at first. Next, download the checkpoint file (`dhr2_ckpt.zip`) and unzip it in `Dense-Homolog-Retrieval` directory to obtain `dhr_cencoder.pt` and `dhr_qencoder.pt`. Then, generate sequence embeddings for all mutants as follows:
-```
-cd evaluate
-conda activate fastMSA
-python embedding.py --mutants ../tasks/TARGET/mutants.csv --output ../tasks/TARGET
-```
+- `checkpoint.pth`: Checkpoint during RelaVDEP execution
+- `events.out.tfevents.****`: Training logs of RelaVDEP
+- `mutants.csv`: All mutants obtained through virtual directed evolution
+- `replay_buffer.pkl`: Replay buffer of RelaVDEP
 
-#### 2. Construct the library
-Perform DHR embedding-based clustering on mutants with fitness values above a given threshold. Subsequently, construct a mutant library that achieves a balance of high fitness and high diversity.
+### Step 4: Mutant Library Construction
+Before executing this step, please clone [Dense-Homolog-Retrieval](https://github.com/ml4bio/Dense-Homolog-Retrieval) into `scripts/` directory. Next, download the checkpoint file (`dhr2_ckpt.zip`) and unzip it directly within the `scripts/Dense-Homolog-Retrieval/` directory to obtain `dhr_cencoder.pt` and `dhr_qencoder.pt`. 
 
-Arguments:
+Construct the optimized mutant library via:
+
 ```
--h, --help            show this help message and exit
---fasta FASTA         Input protein sequence
---embedding EMBEDDING
-                    DHR embedding of mutants
---output OUTPUT       Output directory path
---cutoff CUTOFF       Fitness cutoff value (default: 0)
---size SIZE           The size of mutant library (default: 10)
---seed SEED           Random seed (default: 42)
---n_cpu N_CPU         Number of cpu using in Ray (default: 10)
-```
-Example:
-```
-conda activate relavdep
-python library.py --fasta ../data/fasta/TARGET.fasta --embedding ../tasks/TARGET/embeddings.pt --output ../tasks/TARGET
+python 3_construct_library.py  --fasta TARGET.fasta --mutants outputs/TARGET/mutants.csv --output outputs/TARGET/ --cutoff cutoff 
 ```
 
-#### 3. Filter evaluation
-We provide the zero-shot version of [SPIRED-Stab](https://www.nature.com/articles/s41467-024-51776-x) as a filter for evaluating stability and foldability. Run this step as follows:
-```
-python eval_stab.py --fasta ../data/fasta/TARGET.fasta --library ../tasks/TARGET/library.csv --output ../tasks/TARGET
-```
-The `library_stab.csv` is the final result file. Additionally, we recommend installing [ESMFold](https://www.science.org/doi/10.1126/science.ade2574)/[OpenFold](https://www.nature.com/articles/s41592-024-02272-z) as extra filters to further enhance the reliability of evaluation results. Here, we provide scripts (`eval_esmfold.py/eval_openfold.py`) for ESMFold/OpenFold inference in `evaluate` directory.
+Here, `cutoff` was provided in step 2.
 
-## Reference
-[Accelerating Virtual Directed Evolution of Proteins via Reinforcement Learning](https://doi.org/10.1101/2025.06.25.661516)
+Run `python 3_construct_library.py -h` to get optional arguments. After completing this step, the following files will be obtained:
+
+- `library.csv`: **Optimized mutant library (the final result containing recommended mutants)**
+- `frequency.png`: Mutation frequency of the selected mutants
+- `library.png`: Distribution of the selected mutants in 2D space
+
+We provide the zero-shot version of [SPIRED-Stab](https://www.nature.com/articles/s41467-024-51776-x) as a filter to predict stability ($\Delta\Delta G$ & $\Delta T_m$) and foldability ($pLDDT$) for mutant library. Additionally, we recommend installing [ESMFold](https://www.science.org/doi/10.1126/science.ade2574)/[OpenFold](https://www.nature.com/articles/s41592-024-02272-z) as extra filters to further enhance the reliability of evaluation results. The scripts for performing ESMFold and OpenFold predictions (`eval_esmfold.py` & `eval_openfold.py`) have been provided in the `scripts/` as reference.
 
 ## Acknowledgements
-We adapted some codes from SPIRED-Fitness, OpenFold, ESMFold and MuZero. We thank the authors for their impressive work.
+We adapted some codes from SPIRED-Fitness, OpenFold and ESMFold. We thank the authors for their impressive work.
 1. Chen, Y., Xu, Y., Liu, D., Xing, Y., & Gong, H. (2024). An end-to-end framework for the prediction of protein structure and fitness from single sequence. Nature Communications, 15(1), 7400. doi:10.1038/s41467-024-51776-x
 2. Ahdritz, G., Bouatta, N., Floristean, C., Kadyan, S., Xia, Q., Gerecke, W., … AlQuraishi, M. (2024). OpenFold: retraining AlphaFold2 yields new insights into its learning mechanisms and capacity for generalization. Nature Methods, 21(8), 1514–1524. doi:10.1038/s41592-024-02272-z
 3. Lin, Z., Akin, H., Rao, R., Hie, B., Zhu, Z., Lu, W., … Rives, A. (2023). Evolutionary-scale prediction of atomic-level protein structure with a language model. Science (New York, N.Y.), 379(6637), 1123–1130. doi:10.1126/science.ade2574.
-
-4. Werner, D., Aurèle H. (2019). MuZero General: Open Reimplementation of MuZero. https://github.com/werner-duvaud/muzero-general
