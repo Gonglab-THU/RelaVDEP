@@ -1,7 +1,7 @@
 # RelaVDEP
 RelaVDEP (**Re**inforcement **L**earning **A**ssisted **V**irtual **D**irected **E**volution for **P**roteins) is a model-based reinforcement learning framework for accelerating virtual directed evolution of proteins.
 
-## Introduction
+## Overview
 
 RelaVDEP is a model-based Reinforcement Learning framework specifically designed to optimize protein functions through a virtual Directed Evolution process. The framework integrates a high-precision pre-trained protein fitness predictor as its reward model and employs a Graph Neural Network architecture to explicitly encode the structure-aware inter-residue relationships. Built with a distributed computational architecture, RelaVDEP supports a parallelized training process. Additionally, a multi-objective optimization strategy is designed to construct the mutant library that systematically balances functional fitness and sequence diversity.
 
