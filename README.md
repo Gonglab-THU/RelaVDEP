@@ -18,6 +18,7 @@ conda activate relavdep
 
 ## Data Access
 Download ESM-2 and SPIRED-Fitness model parameters by running the following:
+
 ```
 # Download zip archive
 curl -o models.zip https://zenodo.org/records/15720583/files/params.zip?download=1
@@ -25,6 +26,8 @@ curl -o models.zip https://zenodo.org/records/15720583/files/params.zip?download
 unzip models.zip -d models/
 rm models.zip
 ```
+
+You can also download the model parameters (`models.zip`) from [Zenodo](https://zenodo.org/doi/10.5281/zenodo.15720582) and unzip the file in `RelaVDEP` directory.
 
 ## Usage
 

@@ -35,18 +35,16 @@ parser.add_argument('--constraint', type=str, default=None, help='Constraint fil
 parser.add_argument('--data_dir', type=str, default='models', help='Directory for model parameters (default: %(default)s)')
 parser.add_argument('--output', type=str, default='outputs', help='Output directory (default: %(default)s)')
 parser.add_argument('--temp_dir', type=str, default='/tmp/ray', help='Temporary directory for spilling object store (default: %(default)s)')
-
 parser.add_argument('--rm_type', type=str, default='SmallFitness', choices=['SmallFitness', 'LargeFitness', 'SmallStab', 'LargeStab'], 
                     help='Type of the reward model (default: %(default)s)')
-parser.add_argument('--n_layer', type=int, default=1, help='Number of downstream MLP layers (default: %(default)s)')
 parser.add_argument('--max_mut', type=int, default=4, help='Maximum mutation counts (default: %(default)s)')
+parser.add_argument('--n_gpus', type=int, default=1, help='Number of GPUs (default: %(default)s)')
+parser.add_argument('--n_layer', type=int, default=1, help='Number of downstream MLP layers (default: %(default)s)')
 parser.add_argument('--n_player', type=int, default=6, help='Number of self-play workers (default: %(default)s)')
 parser.add_argument('--n_sim', type=int, default=1200, help='Number of MCTS simulations (default: %(default)s)')
 parser.add_argument('--train_delay', type=int, default=2, help='Training delay (default: %(default)s)')
-parser.add_argument('--n_gpus', type=int, default=1, help='Number of GPUs (default: %(default)s)')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (default: %(default)s)')
 parser.add_argument('--seed', type=int, default=0, help='Random seed (default: %(default)s)')
-
 parser.add_argument('--no_buffer', action='store_true', help='Skip saving replay buffer during training (default: %(default)s)')
 args = parser.parse_args()
 

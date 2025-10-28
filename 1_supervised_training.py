@@ -31,7 +31,6 @@ parser.add_argument('--batch_size', type=int, default=32, help='Batch size (defa
 parser.add_argument('--n_fold', type=int, default=5, help='Number of CV folds (default: %(default)s)')
 parser.add_argument('--seed', type=int, default=42, help='Random seed (default: %(default)s)')
 parser.add_argument('--init_lr', type=float, default=1e-3, help='Learning rate (default: %(default)s)')
-parser.add_argument('--device', type=str, default='cpu', help="Device to use (default: %(default)s)")
 args = parser.parse_args()
 
 assert os.path.exists(args.fasta), "!!! Input protein sequence does not exist !!!"
@@ -45,6 +44,7 @@ os.makedirs(args.output, exist_ok=True)
 set_worker_seed(args.seed)
 g = torch.Generator()
 g.manual_seed(args.seed)
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 ###### 1. Extract embeddings ######
 
@@ -53,11 +53,11 @@ s1_start = timeit.default_timer()
 
 current_path = os.path.abspath(os.path.dirname(__file__))
 cst_path = os.path.join(current_path, 'relavdep/data/mutation_constraint')
-base_model = BaseModel(data_dir=os.path.join(current_path, 'models'), device=args.device)
+base_model = BaseModel(data_dir=os.path.join(current_path, 'models'), device=device)
 fitness_params = os.path.join(current_path, 'models', 'SPIRED-Fitness.pth')
 stab_params = os.path.join(current_path, 'models', 'SPIRED-Stab.pth')
-all_targets = [target_name] + list(raw_data['mutant'])
-all_sequences = [target_sequence] + list(raw_data['sequence'])
+all_targets = [target_name] + raw_data['mutant'].tolist()
+all_sequences = [target_sequence] + raw_data['sequence'].tolist()
 embeddings_path = os.path.join(args.output, 'embeddings')
 rm_params = os.path.join(args.output, f'{target_name}.pth')
 os.makedirs(embeddings_path, exist_ok=True)
@@ -228,7 +228,7 @@ def cross_validation(train_val_data, splitor, test_loader):
             
             model_dict.update(best_dict)
             model.load_state_dict(model_dict)
-            model.to(args.device)
+            model.to(device)
 
             for name, param in model.named_parameters():
                 if 'down_stream_model' in name:
@@ -356,7 +356,7 @@ if model_type == 'small':
     
     model_dict.update(best_dict)
     model.load_state_dict(model_dict)
-    model.to(args.device)
+    model.to(device)
 
     for name, param in model.named_parameters():
         if 'down_stream_model' in name:
@@ -380,7 +380,7 @@ if model_type == 'large':
     
     model_dict.update(best_dict)
     model.load_state_dict(model_dict)
-    model.to(args.device)
+    model.to(device)
 
     for name, param in model.named_parameters():
         if 'finetune' in name:
@@ -404,7 +404,7 @@ try:
     print(f"Stage completed. Duration: {s3_end - s3_start:.2f}s")
 
     model.load_state_dict(torch.load(rm_params, map_location=torch.device('cpu')))
-    model.to(args.device)
+    model.to(device)
 
     for name, param in model.named_parameters():
         if 'finetune' in name:
@@ -421,7 +421,7 @@ try:
     print(f"Stage {train_stage+2}: Predicting fitness for all mutants.")
     s5_start = timeit.default_timer()
     model.load_state_dict(torch.load(rm_params, map_location=torch.device('cpu')))
-    model.eval().to(args.device)
+    model.eval().to(device)
 
     pred_fitness = []
     wt_data = torch.load(os.path.join(embeddings_path, f'{target_name}.pt'))
