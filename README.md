@@ -27,7 +27,7 @@ unzip models.zip -d models/
 rm models.zip
 ```
 
-You can also download the model parameters (`models.zip`) from [Zenodo](https://zenodo.org/doi/10.5281/zenodo.15720582) and unzip the file in `RelaVDEP` directory.
+Alternatively, you can manually download the model parameters (`models.zip`) from [Zenodo](https://zenodo.org/doi/10.5281/zenodo.15720582) and unzip the contents into the `models/` directory within the `RelaVDEP` project folder.
 
 ## Usage
 
