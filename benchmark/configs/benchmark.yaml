@@ -1,0 +1,32 @@
+cv_splits: multiples
+dataset: all
+single_id: null
+
+reference_file: data/DMS_substitutions.csv
+
+DMS_singles: data/cv_splits/cv_folds_singles_substitutions
+DMS_multiples: data/cv_splits/cv_folds_multiples_substitutions
+DMS_label: DMS_score
+
+embedding_singles: data/embeddings/cv_folds_singles_substitutions
+embedding_multiples: data/embeddings/cv_folds_multiples_substitutions
+
+model_path: ../models
+
+use_gpu: true
+cv_scheme: fold_rand_multiples
+
+output_folder: outputs
+fitness_params: ${model_path}/SPIRED-Fitness.pth
+
+seed: 42
+len_cutoff: 750
+num_cutoff: 7500
+n_layer: 1
+batch_size: 128
+epochs: 100
+init_lr: 1e-3
+coef_lr: 1e-3
+cons_lr: 1e-3
+num_gpus: 1
+timeout: 180.0
