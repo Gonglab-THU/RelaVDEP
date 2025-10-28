@@ -1,5 +1,5 @@
 # RelaVDEP
-Reinforcement Learning Assisted Directed Evolution for Proteins.
+RelaVDEP (**Re**inforcement **L**earning **A**ssisted **V**irtual **D**irected **E**volution for **P**roteins) is a model-based reinforcement learning framework for accelerating virtual directed evolution of proteins.
 
 ## Introduction
 
