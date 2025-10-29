@@ -189,7 +189,6 @@ def calc_best_layers():
     best_idx = np.argmax(calculate_result)
     best_layer = best_idx + 1
     best_value = calculate_result[best_idx]
-    print(f"Best MLP Layer Count: {best_layer} | Spearman Correlation: {best_value:.2f}")
     return best_layer
 
 def cross_validation(train_val_data, splitor, test_loader):
@@ -436,8 +435,6 @@ try:
         pred_fitness.append(fitness_value.item())
     
     raw_data['pred'] = pred_fitness[1:]
-    raw_data.to_csv(os.path.join(args.output, 'pred_fitness.csv'), index=False)
-    print(f"Fitness cutoff is: {pred_fitness[0]:.2f}")
     
     s5_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s5_end - s5_start:.2f}s")
@@ -467,6 +464,7 @@ try:
     
     mutations_df = pd.DataFrame(all_single_mutations)
     pred_scores = []
+    
     for mutant in tqdm(mutations_df['sequence']):
         with torch.no_grad():
             mut_data = base_model.inference(mutant)
@@ -491,12 +489,20 @@ try:
     s6_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s6_end - s6_start:.2f}s")
 
-    print(f"All processes completed. Duration: {s6_end - s1_start:.2f}s")
+    print(f"** All processes completed. Duration: {s6_end - s1_start:.2f}s **")
 
-    print((
-        f"When running the next script (2_directed_evolution.py), "
-        f"use the following command-line arguments: \n"
-        f"'--rm_params {rm_params} --rm_type {rm_type} --constraint {cst_file}'"
-    ))
+    print(f"{'=' * 60}\n")
+    print("** Next Steps: Parameters for Subsequent Scripts **\n")
+    print("------------------------------------------------------------")
+    print("1. For 2_directed_evolution.py (Virtual Directed Evolution), add the following arguments:\n")
+    if model_type == "small":
+        print(f"--n_layer {best_layer} \\")
+    print(f"--rm_params {rm_params} \\")
+    print(f"--rm_type {rm_type} \\")
+    print(f"--constraint {cst_file}")
+    print("------------------------------------------------------------")
+    print("2. For 3_construct_library.py (Mutant Library Construction), add the following argument:\n")
+    print(f"--cutoff {pred_fitness[0]:.4f}")
+    print(f"{'=' * 60}\n")
 except Exception as e:
     print(f"!!! An unexpected error occurred: {e} !!!")

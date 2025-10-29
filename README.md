@@ -68,7 +68,7 @@ Run `python 2_directed_evolution.py -h` to get optional arguments. After complet
 - `replay_buffer.pkl`: Replay buffer of RelaVDEP
 
 ### Step 4: Mutant Library Construction
-Before executing this step, please clone [Dense-Homolog-Retrieval](https://github.com/ml4bio/Dense-Homolog-Retrieval) into `scripts/` directory. Next, download the checkpoint file (`dhr2_ckpt.zip`) and unzip it directly within the `scripts/Dense-Homolog-Retrieval/` directory to obtain `dhr_cencoder.pt` and `dhr_qencoder.pt`. 
+Before executing this step, please clone the repository `Dense-Homolog-Retrieval.git` into `scripts/` directory and build `fastMSA` environment following the instructions ([Dense-Homolog-Retrieval](https://github.com/ml4bio/Dense-Homolog-Retrieval)).Besides, please download the checkpoints (`dhr2_ckpt.zip`) in the official repository and unzip it directly into `scripts/Dense-Homolog-Retrieval/` directory to obtain `dhr_cencoder.pt` and `dhr_qencoder.pt`.
 
 Construct the optimized mutant library via:
 
