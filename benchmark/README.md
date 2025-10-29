@@ -5,9 +5,30 @@
 
 ## Data Access
 
-* Reference file: 
+### Reference file
 
-* DMS assays:
+The [reference file](https://github.com/OATML-Markslab/ProteinGym/blob/main/reference_files/DMS_substitutions.csv) of DMS substitutions can be downloaded from the ProteinGym repository and be saved as `DMS_substitutions.csv` in `data/` directory.
+
+The file can be downloaded by running the following:
+
+```
+curl -o data/DMS_substitutions.csv https://raw.githubusercontent.com/OATML-Markslab/ProteinGym/main/reference_files/DMS_substitutions.csv
+```
+
+### DMS assays
+All DMS assays can be downloaded and extracted to `data/cv_splits` directory. Run the following to download and extract all assays:
+
+```
+# Download single-mutant and multiple-mutant assays
+curl -o cv_folds_singles_substitutions.zip https://marks.hms.harvard.edu/proteingym/ProteinGym_v1.3/cv_folds_singles_substitutions.zip
+curl -o cv_folds_multiples_substitutions.zip https://marks.hms.harvard.edu/proteingym/ProteinGym_v1.3/cv_folds_multiples_substitutions.zip
+
+# Unpack and remove zip archive
+unzip cv_folds_singles_substitutions.zip -d data/cv_splits
+rm cv_folds_singles_substitutions.zip
+unzip cv_folds_multiples_substitutions.zip -d data/cv_splits
+rm cv_folds_multiples_substitutions.zip
+```
 
 ## Usage
 
@@ -23,7 +44,7 @@ python 1_extract_embeddings.py \
     cv_scheme=fold_rand_multiples
 ```
 
-### Step 2: Evaluation
+### Step 2: Evaluation on ProteinGym Benchmark
 To evaluate the fitness predictor on the full benchmark, run the following:
 
 ```
