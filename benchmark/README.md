@@ -37,7 +37,7 @@ rm cv_folds_multiples_substitutions.zip
 
 ### Step 1: Extract sequence embeddings
 
-All sequence embeddings of ProteinGym DMS assays (`embeddings.zip`) can be downloaded from [Zenodo](https://zenodo.org/doi/10.5281/zenodo.15720582). The full zip archive takes up approximately 44GB of storage.
+All sequence embeddings of ProteinGym DMS assays (`embeddings.zip`) can be downloaded from [Zenodo](https://zenodo.org/doi/10.5281/zenodo.15720582). The full zip archive takes up approximately 1.2T of storage.
 
 Alternatively, you can extract embeddings for the specific assay data via:
 
