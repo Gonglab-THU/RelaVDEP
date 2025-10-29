@@ -22,6 +22,7 @@ def _filter_datasets(cfg: DictConfig, embedding_dir: Path) -> pd.DataFrame:
         if cfg.cv_splits == "multiples":
             df_ref = df_ref[df_ref["includes_multiple_mutants"]]
             df_ref = df_ref[df_ref["DMS_total_number_mutants"] < cfg.num_cutoff]
+            df_ref = df_ref[df_ref["DMS_id"] != "GCN4_YEAST_Staller_2018"]
         if cfg.cv_splits == "singles":
             df_ref = df_ref[df_ref["DMS_number_single_mutants"] < cfg.num_cutoff]
     elif cfg.dataset == "single":

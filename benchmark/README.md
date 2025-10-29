@@ -1,7 +1,10 @@
 # Evaluation of the Fitness Predictor
-
+To verify the reliability of the fitness predictor (reward model) in RelaVDEP, we evaluated it on the ProteinGym benchmark.
 
 ## Overview
+For the reward model, the Structure Prediction Module (SPIRED) and the Graph Attention Mechanism Module (GAT Module) adopt the pre-trained parameters of SPIRED-Fitness. To accommodate mutation data of varying scales, multi-layer MLP modules are used for fine-tuning. The model processes both the wild-type and mutant sequences using shared weights, and a final linear layer calculates the fitness change by taking the difference between their outputs.
+
+![](figures/reward_model.svg "Reward Model")
 
 ## Data Access
 

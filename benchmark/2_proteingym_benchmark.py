@@ -17,12 +17,12 @@ from utils._prepare_inputs import prepare_inputs
 from utils._split_inputs import split_inputs
 from utils._train_rm import *
 
-@ray.remote(num_gpus=0.2)
+@ray.remote(num_gpus=0.5)
 def _evaluate_single_dms(cfg: DictConfig, DMS_id: str) -> None:
     try:
         from relavdep.modules.utils._models import SmallFitness, LargeFitness
 
-        os.makedirs(os.path.join(cfg.output_folder, DMS_id), exist_ok=True)
+        os.makedirs(os.path.join(cfg.output_folder, cfg.cv_scheme, DMS_id), exist_ok=True)
         df, labels, wt_embedding, embeddings = prepare_inputs(cfg, DMS_id)
         device = 'cuda' if cfg.use_gpu and torch.cuda.is_available() else 'cpu'
 
@@ -71,7 +71,7 @@ def _evaluate_single_dms(cfg: DictConfig, DMS_id: str) -> None:
                     else:
                         param.requires_grad = True
 
-            best_params = os.path.join(cfg.output_folder, f'{DMS_id}/fold{test_fold}_best.pth')
+            best_params = os.path.join(cfg.output_folder, f'{cfg.cv_scheme}/{DMS_id}/fold{test_fold}_best.pth')
             
             if not os.path.exists(best_params):
                 sft(cfg, test_fold, model, DMS_id, wt_embedding, embeddings_train, label_train, finetune=False)
@@ -85,7 +85,7 @@ def _evaluate_single_dms(cfg: DictConfig, DMS_id: str) -> None:
                 else:
                     param.requires_grad = False
             
-            model_params = os.path.join(cfg.output_folder, f'{DMS_id}/fold{test_fold}_{DMS_id}.pth')
+            model_params = os.path.join(cfg.output_folder, f'{cfg.cv_scheme}/{DMS_id}/fold{test_fold}_{DMS_id}.pth')
             
             if not os.path.exists(model_params):
                 sft(cfg, test_fold, model, DMS_id, wt_embedding, embeddings_train, label_train, finetune=True)
@@ -96,7 +96,7 @@ def _evaluate_single_dms(cfg: DictConfig, DMS_id: str) -> None:
             df_out = inference(test_idx, test_fold, model, wt_embedding, embeddings_test, label_test, df_out)
 
         out_path = Path(cfg.output_folder) / cfg.cv_scheme / DMS_id / f"{DMS_id}.csv"
-        out_path.parent.mkdir(parents=True, exist_ok=True)
+        os.makedirs(str(out_path.parent), exist_ok=True)
 
         spearman = df_out["y"].corr(df_out["y_pred"], "spearman")
         mae = np.mean(np.abs(df_out["y"] - df_out["y_pred"]))
@@ -160,7 +160,7 @@ def main(cfg: DictConfig) -> None:
                     print(f"[{completed_count}/{total_tasks}] SUCCESS: {result['DMS_id']}"
                           f"(Spearman: {result['spearman']}, MAE: {result['MAE']})")
                 else:
-                    print(f"[{completed_count}/{total_tasks}] FAILURE: {result['DMS_id']} (Error: {result['error_message']})")
+                    print(f"[{completed_count}/{total_tasks}] FAILURE: {result['DMS_id']} ({result['error_message']})")
             
             except ray.exceptions.RayTaskError as e:
                 completed_count += 1
