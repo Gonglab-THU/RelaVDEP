@@ -52,7 +52,7 @@ print("Stage 1: Extract ESM-2 embeddings and predict structures.")
 s1_start = timeit.default_timer()
 
 current_path = os.path.abspath(os.path.dirname(__file__))
-cst_path = os.path.join(current_path, 'relavdep/data/mutation_constraint')
+cst_path = os.path.join('relavdep', 'data', 'mutation_constraint')
 base_model = BaseModel(data_dir=os.path.join(current_path, 'models'), device=device)
 fitness_params = os.path.join(current_path, 'models', 'SPIRED-Fitness.pth')
 stab_params = os.path.join(current_path, 'models', 'SPIRED-Stab.pth')
