@@ -16,10 +16,6 @@ class RewardModel:
             self.fitness_model = SmallFitness(n_layer=config.n_layer)
         elif config.rm_type == 'LargeFitness':  
             self.fitness_model = LargeFitness()
-        elif config.rm_type == 'SmallStab':
-            self.fitness_model = SmallStab(n_layer=config.n_layer)
-        elif config.rm_type == 'LargeStab':
-            self.fitness_model = LargeStab()
         else:
             raise ValueError(f"Invalid model type: {config.rm_type}")
         

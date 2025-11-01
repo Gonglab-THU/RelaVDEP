@@ -150,6 +150,36 @@ class SmallFitness(nn.Module):
         delta_value = torch.sum((mut_value - wt_value).squeeze(-1) * mut_pos, dim=1)
         return self.finetune_coef * delta_value + self.finetune_cons
 
+class LargeFitness(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.Fitness = PretrainModel(node_dim = 32, num_layer = 2, n_head = 8, pair_dim = 32)
+        self.down_stream_model = nn.Sequential(nn.Linear(32, 16), 
+                                               nn.LeakyReLU(),
+                                               nn.Linear(16, 8),
+                                               nn.LeakyReLU(),
+                                               nn.Linear(8, 1))
+        self.finetune_coef = nn.Parameter(torch.tensor([0.01], requires_grad = True))
+        self.finetune_cons = nn.Parameter(torch.tensor([0.0], requires_grad = True))
+    
+    def forward(self, wt_data, mut_data):
+        wt_pretrained_embedding = self.Fitness({'embedding': wt_data['embedding'], 
+                                                'pair': wt_data['pair'], 
+                                                'plddt': wt_data['plddt']})
+
+        mut_pretrained_embedding = self.Fitness({'embedding': mut_data['embedding'], 
+                                                 'pair': mut_data['pair'], 
+                                                 'plddt': mut_data['plddt']})
+        
+        mut_pos = (wt_data['tokens'] != mut_data['tokens']).int()
+        
+        wt_value = self.down_stream_model(wt_pretrained_embedding)
+        mut_value = self.down_stream_model(mut_pretrained_embedding)
+        
+        delta_value = torch.sum((mut_value - wt_value).squeeze(-1) * mut_pos, dim=1)
+        return self.finetune_coef * delta_value + self.finetune_cons
+
+##### Reward Models (optional) #####
 
 class SmallStab(nn.Module):
     def __init__(self, n_layer, node_dim = 32, num_layer = 3, n_head = 8, pair_dim = 64):
@@ -186,37 +216,6 @@ class SmallStab(nn.Module):
 
         delta_value = torch.sum((mut_value - wt_value).squeeze(-1) * mut_pos, dim=1)
         return self.finetune_coef * delta_value + self.finetune_cons
-
-
-class LargeFitness(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.Fitness = PretrainModel(node_dim = 32, num_layer = 2, n_head = 8, pair_dim = 32)
-        self.down_stream_model = nn.Sequential(nn.Linear(32, 16), 
-                                               nn.LeakyReLU(),
-                                               nn.Linear(16, 8),
-                                               nn.LeakyReLU(),
-                                               nn.Linear(8, 1))
-        self.finetune_coef = nn.Parameter(torch.tensor([0.01], requires_grad = True))
-        self.finetune_cons = nn.Parameter(torch.tensor([0.0], requires_grad = True))
-    
-    def forward(self, wt_data, mut_data):
-        wt_pretrained_embedding = self.Fitness({'embedding': wt_data['embedding'], 
-                                                'pair': wt_data['pair'], 
-                                                'plddt': wt_data['plddt']})
-
-        mut_pretrained_embedding = self.Fitness({'embedding': mut_data['embedding'], 
-                                                 'pair': mut_data['pair'], 
-                                                 'plddt': mut_data['plddt']})
-        
-        mut_pos = (wt_data['tokens'] != mut_data['tokens']).int()
-        
-        wt_value = self.down_stream_model(wt_pretrained_embedding)
-        mut_value = self.down_stream_model(mut_pretrained_embedding)
-        
-        delta_value = torch.sum((mut_value - wt_value).squeeze(-1) * mut_pos, dim=1)
-        return self.finetune_coef * delta_value + self.finetune_cons
-
 
 class LargeStab(nn.Module):
     def __init__(self, node_dim = 32, num_layer = 3, n_head = 8, pair_dim = 64):
