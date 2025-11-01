@@ -23,8 +23,6 @@ parser.add_argument('--fasta', type=str, required=True, help='Wild-type protein 
 parser.add_argument('--data', type=str, required=True, help='Mutation data')
 
 parser.add_argument('--output', type=str, default='outputs', help='Output directory')
-parser.add_argument('--mode', type=str, default='fitness', choices=['fitness', 'stability'], 
-                    help='Type of the Reward model (default: %(default)s)')
 parser.add_argument('--epochs', type=int, default=200, help='Training epochs (default: %(default)s)')
 parser.add_argument('--test_ratio', type=float, default=0.2, help='Testing ratio (default: %(default)s)')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size (default: %(default)s)')
@@ -38,7 +36,7 @@ target_name, target_sequence = read_fasta(args.fasta)
 raw_data = process_and_check_csv(args.data, target_sequence)
 if raw_data is None:
     raise ValueError("!!! Data loading error. Please verify the file format !!!")
-model_type = 'large' if len(raw_data) > 3000 else 'small'
+model_type = 'large' if len(raw_data) > 10000 else 'small'
 assert len(raw_data) > args.batch_size, "!!! Batch size must be smaller than the total number of mutants !!!"
 os.makedirs(args.output, exist_ok=True)
 set_worker_seed(args.seed)
@@ -55,7 +53,6 @@ current_path = os.path.abspath(os.path.dirname(__file__))
 cst_path = os.path.join('relavdep', 'data', 'mutation_constraint')
 base_model = BaseModel(data_dir=os.path.join(current_path, 'models'), device=device)
 fitness_params = os.path.join(current_path, 'models', 'SPIRED-Fitness.pth')
-stab_params = os.path.join(current_path, 'models', 'SPIRED-Stab.pth')
 all_targets = [target_name] + raw_data['mutant'].tolist()
 all_sequences = [target_sequence] + raw_data['sequence'].tolist()
 embeddings_path = os.path.join(args.output, 'embeddings')
@@ -212,19 +209,10 @@ def cross_validation(train_val_data, splitor, test_loader):
                 generator=g, pin_memory=True
             )
 
-            if args.mode == 'fitness':
-                model = SmallFitness(n_layer)
-                model_dict = model.state_dict().copy()
-                best_model = torch.load(fitness_params, map_location=torch.device('cpu')).copy()
-                best_dict = {k: v for k, v in best_model.items() if k in model_dict}
-            elif args.model == 'stability':
-                model = SmallStab(n_layer)
-                model_dict = model.state_dict().copy()
-                best_model = torch.load(stab_params, map_location=torch.device('cpu')).copy()
-                best_dict = {k.split('Stab.')[-1]: v for k, v in best_model.items() if k.split('Stab.')[-1] in model_dict}
-            else:
-                raise ValueError("Invalid model type!")
-            
+            model = SmallFitness(n_layer)
+            model_dict = model.state_dict().copy()
+            best_model = torch.load(fitness_params, map_location=torch.device('cpu')).copy()
+            best_dict = {k: v for k, v in best_model.items() if k in model_dict}
             model_dict.update(best_dict)
             model.load_state_dict(model_dict)
             model.to(device)
@@ -340,19 +328,10 @@ if model_type == 'small':
     s2_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s2_end - s2_start:.2f}s")
 
-    if args.mode == 'fitness':
-        model = SmallFitness(best_layer)
-        model_dict = model.state_dict().copy()
-        best_model = torch.load(fitness_params, map_location=torch.device('cpu')).copy()
-        best_dict = {k: v for k, v in best_model.items() if k in model_dict}
-    elif args.model == 'stability':
-        model = SmallStab(best_layer)
-        model_dict = model.state_dict().copy()
-        best_model = torch.load(stab_params, map_location=torch.device('cpu')).copy()
-        best_dict = {k.split('Stab.')[-1]: v for k, v in best_model.items() if k.split('Stab.')[-1] in model_dict}
-    else:
-        raise ValueError("Invalid model type!")
-    
+    model = SmallFitness(best_layer)
+    model_dict = model.state_dict().copy()
+    best_model = torch.load(fitness_params, map_location=torch.device('cpu')).copy()
+    best_dict = {k: v for k, v in best_model.items() if k in model_dict}
     model_dict.update(best_dict)
     model.load_state_dict(model_dict)
     model.to(device)
@@ -364,19 +343,10 @@ if model_type == 'small':
             param.requires_grad = False
     
 if model_type == 'large':
-    if args.mode == 'fitness':
-        model = LargeFitness()
-        model_dict = model.state_dict().copy()
-        best_model = torch.load(fitness_params, map_location=torch.device('cpu')).copy()
-        best_dict = {k: v for k, v in best_model.items() if k in model_dict}
-    elif args.mode == 'stability':
-        model = LargeStab()
-        model_dict = model.state_dict().copy()
-        best_model = torch.load(stab_params, map_location=torch.device('cpu')).copy()
-        best_dict = {k.split('Stab.')[-1]: v for k, v in best_model.items() if k.split('Stab.')[-1] in model_dict}
-    else:
-        raise ValueError("Invalid model type!")
-    
+    model = LargeFitness()
+    model_dict = model.state_dict().copy()
+    best_model = torch.load(fitness_params, map_location=torch.device('cpu')).copy()
+    best_dict = {k: v for k, v in best_model.items() if k in model_dict}
     model_dict.update(best_dict)
     model.load_state_dict(model_dict)
     model.to(device)
@@ -440,16 +410,7 @@ try:
     print(f"Stage completed. Duration: {s5_end - s5_start:.2f}s")
 
     # reward model type
-    if model_type == 'large':
-        if args.mode == 'fitness':
-            rm_type = 'LargeFitness'
-        if args.mode == 'stability':
-            rm_type = 'LargeStab'
-    if model_type == 'small':
-        if args.mode == 'fitness':
-            rm_type = 'SmallFitness'
-        if args.mode == 'stability':
-            rm_type = 'SmallStab'
+    rm_type = "LargeFitness" if model_type == 'large' else "SmallFitness"
     
     # mutation constraints
     print(f"Stage {train_stage+3}: Extract predicted beneficial mutations.")
