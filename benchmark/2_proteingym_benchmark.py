@@ -26,7 +26,7 @@ def _evaluate_single_dms(cfg: DictConfig, DMS_id: str) -> None:
         df, labels, wt_embedding, embeddings = prepare_inputs(cfg, DMS_id)
         device = 'cuda' if cfg.use_gpu and torch.cuda.is_available() else 'cpu'
 
-        model_type = "large" if len(df) > 3000 else "small"
+        model_type = "large" if len(df) > cfg.type_cutoff else "small"
         df_out = df[["mutant"]].copy()
         df_out = df_out.assign(fold=np.nan, y=np.nan, y_pred=np.nan, y_var=np.nan)
         

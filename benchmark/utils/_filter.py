@@ -6,12 +6,11 @@ def filter_datasets(cfg: DictConfig) -> pd.DataFrame:
     df_ref = pd.read_csv(cfg.reference_file)
 
     if cfg.dataset == "all":
+        df_ref = df_ref[df_ref["includes_multiple_mutants"]]
         df_ref = df_ref[df_ref["seq_len"] < cfg.len_cutoff]
-        if cfg.cv_splits == "multiples":
-            df_ref = df_ref[df_ref["includes_multiple_mutants"]]
-            df_ref = df_ref[df_ref["DMS_total_number_mutants"] < cfg.num_cutoff]
-        if cfg.cv_splits == "singles":
-            df_ref = df_ref[df_ref["DMS_number_single_mutants"] < cfg.num_cutoff]
+        df_ref = df_ref[df_ref["DMS_total_number_mutants"] < cfg.num_cutoff]
+        # special dataset
+        df_ref = df_ref[df_ref["DMS_id"] != "GCN4_YEAST_Staller_2018"]
     elif cfg.dataset == "single":
         if (df_ref["DMS_id"] == cfg.single_id).any():
             df_ref = df_ref[df_ref["DMS_id"] == cfg.single_id]

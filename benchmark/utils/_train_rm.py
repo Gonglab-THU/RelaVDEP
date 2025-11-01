@@ -125,9 +125,9 @@ def sft(cfg, test_fold, model, DMS_id, wt_embedding, embeddings_train, label_tra
             stop_step = 0
             best_loss = val_loss
             if not finetune:
-                torch.save(model.state_dict(), os.path.join(cfg.output_folder, f'{DMS_id}/fold{test_fold}_best.pth'))
+                torch.save(model.state_dict(), os.path.join(cfg.output_folder, f'{cfg.cv_scheme}/{DMS_id}/fold{test_fold}_best.pth'))
             else:
-                torch.save(model.state_dict(), os.path.join(cfg.output_folder, f'{DMS_id}/fold{test_fold}_{DMS_id}.pth'))
+                torch.save(model.state_dict(), os.path.join(cfg.output_folder, f'{cfg.cv_scheme}/{DMS_id}/fold{test_fold}_{DMS_id}.pth'))
         else:
             stop_step += 1
         
