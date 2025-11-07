@@ -185,7 +185,6 @@ def calc_best_layers():
     
     best_idx = np.argmax(calculate_result)
     best_layer = best_idx + 1
-    best_value = calculate_result[best_idx]
     return best_layer
 
 def cross_validation(train_val_data, splitor, test_loader):
@@ -196,7 +195,7 @@ def cross_validation(train_val_data, splitor, test_loader):
             train_data = train_val_data.iloc[train_index].copy()
             train_dataset = EmbeddingData(train_data)
             train_loader = DataLoader(
-                train_dataset, batch_size=args.batch_size, 
+                train_dataset, batch_size=min(args.batch_size, len(train_data)), 
                 shuffle=True, drop_last=True, num_workers=4, 
                 generator=g, pin_memory=True
             )
@@ -204,7 +203,7 @@ def cross_validation(train_val_data, splitor, test_loader):
             val_data = train_val_data.iloc[val_index].copy()
             val_dataset = EmbeddingData(val_data)
             val_loader = DataLoader(
-                val_dataset, batch_size=args.batch_size, 
+                val_dataset, batch_size=min(args.batch_size, len(val_data)), 
                 shuffle=True, drop_last=True, num_workers=4, 
                 generator=g, pin_memory=True
             )
