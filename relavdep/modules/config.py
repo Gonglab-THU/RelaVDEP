@@ -27,7 +27,6 @@ class Config(BaseConfig):
         self.n_player = args.n_player
         self.batch_size = args.batch_size
         self.n_gpus = args.n_gpus
-        self.no_buffer = args.no_buffer
         self.n_layer = args.n_layer
         self.num_unroll_steps = args.max_mut // 2
         self.td_steps = args.max_mut

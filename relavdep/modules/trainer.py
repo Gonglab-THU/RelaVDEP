@@ -45,10 +45,6 @@ class Trainer:
                 shared_storage.save_checkpoint.remote(os.path.join(self.config.output_path, 'checkpoint.pth'))
                 replay_buffer.output_sequences.remote()
                 
-                if not self.config.no_buffer:
-                    buffer = ray.get(replay_buffer.get_buffer.remote())
-                    with open(os.path.join(self.config.output_path, 'replay_buffer.pkl'), 'wb') as f:
-                        pickle.dump(buffer, f)
                 torch.cuda.empty_cache()
 
             shared_storage.set_info.remote({"training_step": self.training_step, 
