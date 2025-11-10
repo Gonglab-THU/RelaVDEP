@@ -63,7 +63,7 @@ If the best MLP layer count was not obtained in the previous step, the `--n_laye
 Run `python 2_directed_evolution.py -h` to get optional arguments. After completing this step, the following files will be obtained:
 
 - `checkpoint.pth`: Checkpoint during RelaVDEP execution
-- `events.out.tfevents.****`: Training logs of RelaVDEP
+- `events.out.tfevents.*`: Training logs of RelaVDEP
 - `mutants.csv`: All mutants obtained through virtual directed evolution
 - `replay_buffer.pkl`: Replay buffer of RelaVDEP
 
