@@ -55,7 +55,7 @@ Run `python 1_supervised_training.py -h` to view all optional arguments. Upon co
 Apply the RelaVDEP model to evolve the target protein via:
 
 ```
-python 2_directed_evolution.py --fasta relavdep/data/target_sequence/TARGET.fasta --rm_params outputs/TARGET/TARGET.pth --constraint relavdep/data/mutation_constraint/TARGET.npz --output outputs/TARGET --rm_type rm_type --n_layer n_layer --no_buffer
+python 2_directed_evolution.py --fasta relavdep/data/target_sequence/TARGET.fasta --rm_params outputs/TARGET/TARGET.pth --constraint relavdep/data/mutation_constraint/TARGET.npz --output outputs/TARGET --rm_type rm_type --n_layer n_layer
 ```
 
 If the best MLP layer count was not obtained in the previous step, the `--n_layer` argument is not required. Additionally, it is recommended to use `--no-buffer` to improve operational efficiency.

@@ -44,7 +44,6 @@ parser.add_argument('--n_sim', type=int, default=1200, help='Number of MCTS simu
 parser.add_argument('--train_delay', type=int, default=2, help='Training delay (default: %(default)s)')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (default: %(default)s)')
 parser.add_argument('--seed', type=int, default=0, help='Random seed (default: %(default)s)')
-parser.add_argument('--no_buffer', action='store_true', help='Skip saving replay buffer during training (default: %(default)s)')
 args = parser.parse_args()
 
 assert os.path.exists(args.fasta), "!!! Fasta file does not exist !!!"

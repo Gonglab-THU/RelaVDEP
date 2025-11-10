@@ -1,4 +1,4 @@
-import os, sys
+import os
 import timeit
 import argparse
 import torch
@@ -23,31 +23,31 @@ parser.add_argument('--fasta', type=str, required=True, help='Wild-type protein 
 parser.add_argument('--data', type=str, required=True, help='Mutation data')
 
 parser.add_argument('--output', type=str, default='outputs', help='Output directory')
-parser.add_argument('--epochs', type=int, default=200, help='Training epochs (default: %(default)s)')
+parser.add_argument('--epochs', type=int, default=100, help='Training epochs (default: %(default)s)')
 parser.add_argument('--test_ratio', type=float, default=0.2, help='Testing ratio (default: %(default)s)')
-parser.add_argument('--batch_size', type=int, default=32, help='Batch size (default: %(default)s)')
+parser.add_argument('--batch_size', type=int, default=24, help='Batch size (default: %(default)s)')
 parser.add_argument('--n_fold', type=int, default=5, help='Number of CV folds (default: %(default)s)')
 parser.add_argument('--seed', type=int, default=42, help='Random seed (default: %(default)s)')
 parser.add_argument('--init_lr', type=float, default=1e-3, help='Learning rate (default: %(default)s)')
+parser.add_argument('--cross_val', action='store_true', help='Perform cross validation (default: %(default)s)')
 args = parser.parse_args()
 
+print(f"{'=' * 60}")
 assert os.path.exists(args.fasta), "!!! Input protein sequence does not exist !!!"
 target_name, target_sequence = read_fasta(args.fasta)
+
 raw_data = process_and_check_csv(args.data, target_sequence)
 if raw_data is None:
     raise ValueError("!!! Data loading error. Please verify the file format !!!")
 model_type = 'large' if len(raw_data) > 10000 else 'small'
-assert len(raw_data) > args.batch_size, "!!! Batch size must be smaller than the total number of mutants !!!"
 os.makedirs(args.output, exist_ok=True)
+
 set_worker_seed(args.seed)
 g = torch.Generator()
 g.manual_seed(args.seed)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 ###### 1. Extract embeddings ######
-
-print("Stage 1: Extract ESM-2 embeddings and predict structures.")
-s1_start = timeit.default_timer()
 
 current_path = os.path.abspath(os.path.dirname(__file__))
 cst_path = os.path.join('relavdep', 'data', 'mutation_constraint')
@@ -58,6 +58,9 @@ all_sequences = [target_sequence] + raw_data['sequence'].tolist()
 embeddings_path = os.path.join(args.output, 'embeddings')
 rm_params = os.path.join(args.output, f'{target_name}.pth')
 os.makedirs(embeddings_path, exist_ok=True)
+
+print(">>> Stage 1: Extract ESM-2 embeddings and predict structures.")
+s1_start = timeit.default_timer()
 
 for target, sequence in tqdm(zip(all_targets, all_sequences), total=len(all_targets), desc="Extracting Embeddings"):
     if not os.path.exists(os.path.join(embeddings_path, f'{target}.pt')):
@@ -300,29 +303,29 @@ def normal_training(model, train_loader, val_loader, finetune=False):
 
 test_data = raw_data.sample(frac=args.test_ratio, random_state=args.seed, axis=0)
 test_dataset = EmbeddingData(test_data)
-test_loader = DataLoader(
-    test_dataset, batch_size=1, 
-    shuffle=False, num_workers=4, 
-    generator=g, pin_memory=True
-)
 
 test_mutants_set = set(test_data['mutant'])
 mask = ~raw_data['mutant'].isin(test_mutants_set)
 train_data = raw_data[mask].copy()
 
 if model_type == 'small':
-    print("Stage 2: Cross-Validation for MLP depth determination.")
-    s2_start = timeit.default_timer()
-    
-    try:
-        splitor = KFold(n_splits=args.n_fold, shuffle=False)
-        cross_validation(train_data, splitor, test_loader)
-        best_layer = calc_best_layers()
-    except ZeroDivisionError:
-        print("!!! ZeroDivisionError occurred. This may be caused by an invalid batch size. Please try reducing the batch size by '--batch_size'. !!!")
-        sys.exit(1)
-    except Exception as e:
-        print(f"!!! An unexpected error occurred during the cross-validation process: {e} !!!")
+    print("Stage 2: Determine the depth of MLP.")
+    if args.cross_val:
+        s2_start = timeit.default_timer()
+        try:
+            test_loader = DataLoader(
+                test_dataset, batch_size=1, 
+                shuffle=False, num_workers=4, 
+                generator=g, pin_memory=True
+            )
+            
+            splitor = KFold(n_splits=args.n_fold, shuffle=False)
+            cross_validation(train_data, splitor, test_loader)
+            best_layer = calc_best_layers()
+        except Exception as e:
+            print(f"!!! An unexpected error occurred during the cross-validation process: {e} !!!")
+    else:
+        best_layer = 2
     
     s2_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s2_end - s2_start:.2f}s")
@@ -358,16 +361,23 @@ if model_type == 'large':
 
 try:
     train_dataset = EmbeddingData(train_data)
+    
     train_loader = DataLoader(
-        train_dataset, batch_size=args.batch_size, 
+        train_dataset, batch_size=min(args.batch_size, len(train_data)), 
         shuffle=True, num_workers=4, drop_last=True,
         generator=g, pin_memory=True
     )
     
+    val_loader = DataLoader(
+        test_dataset, batch_size=min(args.batch_size, len(test_data)), 
+        shuffle=True, drop_last=True, num_workers=4, 
+        generator=g, pin_memory=True
+    )
+    
     train_stage = 2 if model_type == 'large' else 3
-    print(f"Stage {train_stage}: Supervised training the reward model.")
+    print(f">>> Stage {train_stage}: Supervised training the reward model.")
     s3_start = timeit.default_timer()
-    normal_training(model, train_loader, test_loader, finetune=False)
+    normal_training(model, train_loader, val_loader, finetune=False)
     s3_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s3_end - s3_start:.2f}s")
 
@@ -380,30 +390,36 @@ try:
         else:
             param.requires_grad = False
     
-    print(f"Stage {train_stage+1}: Fine-tuning the reward model.")
+    print(f">>> Stage {train_stage+1}: Fine-tuning the reward model.")
     s4_start = timeit.default_timer()
-    normal_training(model, train_loader, test_loader, finetune=True)
+    normal_training(model, train_loader, val_loader, finetune=True)
     s4_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s4_end - s4_start:.2f}s")
 
-    print(f"Stage {train_stage+2}: Predicting fitness for all mutants.")
+    print(f">>> Stage {train_stage+2}: Predicting fitness for test mutants.")
     s5_start = timeit.default_timer()
     model.load_state_dict(torch.load(rm_params, map_location=torch.device('cpu')))
     model.eval().to(device)
 
-    pred_fitness = []
-    wt_data = torch.load(os.path.join(embeddings_path, f'{target_name}.pt'))
+    wt_data = torch.load(os.path.join(embeddings_path, f'{target_name}.pt'), map_location=torch.device('cpu'))
     wt_data = dict_to_device(wt_data, device=next(model.parameters()).device)
-
-    for target, sequence in tqdm(zip(all_targets, all_sequences), total=len(all_targets), desc="Inference"):
-        mut_data = torch.load(os.path.join(embeddings_path, f'{target}.pt'))
+    
+    
+    pred_targets = [target_name] + test_data['mutant'].tolist()
+    pred_sequences = [target_sequence] + test_data['sequence'].tolist()
+    
+    pred_fitness = []
+    for target, sequence in tqdm(zip(pred_targets, pred_sequences), total=len(pred_targets), desc="Predicting"):
+        mut_data = torch.load(os.path.join(embeddings_path, f'{target}.pt'), map_location=torch.device('cpu'))
         mut_data = dict_to_device(mut_data, device=next(model.parameters()).device)
         
         with torch.no_grad():
             fitness_value = model(wt_data, mut_data)
         pred_fitness.append(fitness_value.item())
     
-    raw_data['pred'] = pred_fitness[1:]
+    test_data['pred'] = pred_fitness[1:]
+    test_spearman = test_data['label'].corr(test_data['pred'], 'spearman')
+    print(f"Spearman correlation of validation set: {test_spearman:.2f}")
     
     s5_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s5_end - s5_start:.2f}s")
@@ -412,7 +428,7 @@ try:
     rm_type = "LargeFitness" if model_type == 'large' else "SmallFitness"
     
     # mutation constraints
-    print(f"Stage {train_stage+3}: Extract predicted beneficial mutations.")
+    print(f">>> Stage {train_stage+3}: Extract predicted beneficial mutations.")
     s6_start = timeit.default_timer()
     all_single_mutations = []
     for i, original_residue in enumerate(target_sequence):
@@ -449,20 +465,20 @@ try:
     s6_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s6_end - s6_start:.2f}s")
 
-    print(f"** All processes completed. Duration: {s6_end - s1_start:.2f}s **")
+    print(f"All processes completed. Duration: {s6_end - s1_start:.2f}s")
 
-    print(f"{'=' * 60}\n")
-    print("** Next Steps: Parameters for Subsequent Scripts **\n")
+    print(f"{'=' * 60}")
+    print("** Next Steps: Parameters for Subsequent Scripts **")
     print("------------------------------------------------------------")
-    print("1. For 2_directed_evolution.py (Virtual Directed Evolution), add the following arguments:\n")
+    print("1. For 2_directed_evolution.py (Virtual Directed Evolution), add the following arguments:")
     if model_type == "small":
         print(f"--n_layer {best_layer} \\")
     print(f"--rm_params {rm_params} \\")
     print(f"--rm_type {rm_type} \\")
     print(f"--constraint {cst_file}")
     print("------------------------------------------------------------")
-    print("2. For 3_construct_library.py (Mutant Library Construction), add the following argument:\n")
+    print("2. For 3_construct_library.py (Mutant Library Construction), add the following argument:")
     print(f"--cutoff {pred_fitness[0]:.4f}")
-    print(f"{'=' * 60}\n")
+    print(f"{'=' * 60}")
 except Exception as e:
     print(f"!!! An unexpected error occurred: {e} !!!")
