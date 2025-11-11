@@ -309,7 +309,7 @@ mask = ~raw_data['mutant'].isin(test_mutants_set)
 train_data = raw_data[mask].copy()
 
 if model_type == 'small':
-    print("Stage 2: Determine the depth of MLP.")
+    print(">>> Stage 2: Determine the depth of MLP.")
     s2_start = timeit.default_timer()
     if args.cross_val:
         try:
