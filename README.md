@@ -21,13 +21,13 @@ Download ESM-2 and SPIRED-Fitness model parameters by running the following:
 
 ```
 # Download zip archive
-curl -o models.zip https://zenodo.org/records/15720583/files/params.zip?download=1
+curl -o models.zip https://zenodo.org/records/17590929/files/models.zip?download=1
 # Unpack and remove zip archive
 unzip models.zip -d models/
 rm models.zip
 ```
 
-Alternatively, you can manually download the model parameters (`models.zip`) from [Zenodo](https://zenodo.org/doi/10.5281/zenodo.15720582) and unzip the contents into the `models/` directory within the `RelaVDEP` project folder.
+Alternatively, you can manually download the model parameters (`models.zip`) from [Zenodo](https://doi.org/10.5281/zenodo.17590929) and unzip the contents into the `models/` directory within the `RelaVDEP` project folder.
 
 ## Usage
 
