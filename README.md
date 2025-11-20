@@ -44,7 +44,6 @@ python 1_supervised_training.py --fasta relavdep/data/target_sequence/TARGET.fas
 Run `python 1_supervised_training.py -h` to view all optional arguments. Upon completion, the following information and files will be obtained:
 
 - Parameters to be used in Step 3:
-  - `rm_type`: Type of the reward model (e.g., 'SmallFitness')
   - `n_layer` (possible): MLP Layer Count (Used only if applicable)
   - `TARGET.pth`: Parameters of the trained reward model
   - `TARGET.npz`: Mutation site constraints
@@ -55,10 +54,10 @@ Run `python 1_supervised_training.py -h` to view all optional arguments. Upon co
 Apply the RelaVDEP model to evolve the target protein via:
 
 ```
-python 2_directed_evolution.py --fasta relavdep/data/target_sequence/TARGET.fasta --rm_params outputs/TARGET/TARGET.pth --constraint relavdep/data/mutation_constraint/TARGET.npz --output outputs/TARGET --rm_type rm_type --n_layer n_layer
+python 2_directed_evolution.py --fasta relavdep/data/target_sequence/TARGET.fasta --rm_params outputs/TARGET/TARGET.pth --constraint relavdep/data/mutation_constraint/TARGET.npz --output outputs/TARGET --n_layer n_layer
 ```
 
-If the best MLP layer count was not obtained in the previous step, the `--n_layer` argument is not required. Additionally, it is recommended to use `--no-buffer` to improve operational efficiency.
+Here, reward model parameters (`--rm_params`), mutation constraints (`--constraint`) and MLP layer count (`--n_layer`) are obtained in step 2.
 
 Run `python 2_directed_evolution.py -h` to get optional arguments. After completing this step, the following files will be obtained:
 
@@ -76,18 +75,19 @@ Construct the optimized mutant library via:
 python 3_construct_library.py  --fasta relavdep/data/target_sequence/TARGET.fasta --mutants outputs/TARGET/mutants.csv --output outputs/TARGET/ --cutoff cutoff
 ```
 
-Here, `cutoff` was provided in step 2.
+Here, the fitness cutoff (`--cutoff`) is obtained in step 2.
 
 Run `python 3_construct_library.py -h` to get optional arguments. After completing this step, the following files will be obtained:
 
 - `library.csv`: **Optimized mutant library (the final result containing recommended mutants)**
-- `frequency.png`: Mutation frequency of the selected mutants
 - `library.png`: Distribution of the selected mutants in 2D space
+- `frequency.png`: Mutation frequency of the selected mutants
 
-We provide the zero-shot version of [SPIRED-Stab](https://www.nature.com/articles/s41467-024-51776-x) as a filter to predict stability ($\Delta\Delta G$ & $\Delta T_m$) and foldability ($pLDDT$) for mutant library. Additionally, we recommend installing [ESMFold](https://www.science.org/doi/10.1126/science.ade2574)/[OpenFold](https://www.nature.com/articles/s41592-024-02272-z) as extra filters to further enhance the reliability of evaluation results. The scripts for performing ESMFold and OpenFold predictions (`eval_esmfold.py` & `eval_openfold.py`) have been provided in the `scripts/` as reference.
+We provide the zero-shot version of [SPIRED-Stab](https://www.nature.com/articles/s41467-024-51776-x) as a filter to predict stability ($\Delta\Delta G$ & $\Delta T_m$) and foldability ($pLDDT$) for mutant library. Additionally, we recommend using [ESMFold](https://www.science.org/doi/10.1126/science.ade2574) and [OpenFold](https://www.nature.com/articles/s41592-024-02272-z) as extra filters to further enhance the reliability of evaluation results.
 
 ## Acknowledgements
-We adapted some codes from SPIRED-Fitness, OpenFold and ESMFold. We thank the authors for their impressive work.
+We adapted some codes from SPIRED-Fitness and other projects. We thank the authors for their impressive work.
 1. Chen, Y., Xu, Y., Liu, D., Xing, Y., & Gong, H. (2024). An end-to-end framework for the prediction of protein structure and fitness from single sequence. Nature Communications, 15(1), 7400. doi:10.1038/s41467-024-51776-x
 2. Ahdritz, G., Bouatta, N., Floristean, C., Kadyan, S., Xia, Q., Gerecke, W., … AlQuraishi, M. (2024). OpenFold: retraining AlphaFold2 yields new insights into its learning mechanisms and capacity for generalization. Nature Methods, 21(8), 1514–1524. doi:10.1038/s41592-024-02272-z
 3. Lin, Z., Akin, H., Rao, R., Hie, B., Zhu, Z., Lu, W., … Rives, A. (2023). Evolutionary-scale prediction of atomic-level protein structure with a language model. Science (New York, N.Y.), 379(6637), 1123–1130. doi:10.1126/science.ade2574.
+4. Duvaud, W., & Hainaut, A. (2019). MuZero General: Open Reimplementation of MuZero. GitHub repository. GitHub. https://github.com/werner-duvaud/muzero-general
