@@ -452,7 +452,6 @@ try:
     print(f"Stage completed. Duration: {s6_end - s6_start:.2f}s")
 
     print(f"All processes completed. Duration: {s6_end - s1_start:.2f}s")
-
     print(f"{'=' * 60}")
     print("** Next Steps: Parameters for Subsequent Scripts **")
     print("------------------------------------------------------------")
