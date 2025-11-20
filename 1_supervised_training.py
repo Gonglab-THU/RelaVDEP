@@ -7,6 +7,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
+
 from tqdm import tqdm
 from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader
@@ -29,7 +30,7 @@ parser.add_argument('--batch_size', type=int, default=24, help='Batch size (defa
 parser.add_argument('--n_fold', type=int, default=5, help='Number of CV folds (default: %(default)s)')
 parser.add_argument('--seed', type=int, default=42, help='Random seed (default: %(default)s)')
 parser.add_argument('--init_lr', type=float, default=1e-3, help='Learning rate (default: %(default)s)')
-parser.add_argument('--cross_val', action='store_true', help='Perform cross validation (default: %(default)s)')
+parser.add_argument('--cross_val', action='store_true', default=False, help='Perform cross validation (default: %(default)s)')
 args = parser.parse_args()
 
 print(f"{'=' * 60}")
@@ -39,7 +40,6 @@ target_name, target_sequence = read_fasta(args.fasta)
 raw_data = process_and_check_csv(args.data, target_sequence)
 if raw_data is None:
     raise ValueError("!!! Data loading error. Please verify the file format !!!")
-model_type = 'large' if len(raw_data) > 10000 else 'small'
 os.makedirs(args.output, exist_ok=True)
 
 set_worker_seed(args.seed)
@@ -211,7 +211,7 @@ def cross_validation(train_val_data, splitor, test_loader):
                 generator=g, pin_memory=True
             )
 
-            model = SmallFitness(n_layer)
+            model = FitnessModel(n_layer)
             model_dict = model.state_dict().copy()
             best_model = torch.load(fitness_params, map_location=torch.device('cpu')).copy()
             best_dict = {k: v for k, v in best_model.items() if k in model_dict}
@@ -308,56 +308,41 @@ test_mutants_set = set(test_data['mutant'])
 mask = ~raw_data['mutant'].isin(test_mutants_set)
 train_data = raw_data[mask].copy()
 
-if model_type == 'small':
-    print(">>> Stage 2: Determine the depth of MLP.")
-    s2_start = timeit.default_timer()
-    if args.cross_val:
-        try:
-            test_loader = DataLoader(
-                test_dataset, batch_size=1, 
-                shuffle=False, num_workers=4, 
-                generator=g, pin_memory=True
-            )
-            
-            splitor = KFold(n_splits=args.n_fold, shuffle=False)
-            cross_validation(train_data, splitor, test_loader)
-            best_layer = calc_best_layers()
-        except Exception as e:
-            print(f"!!! An unexpected error occurred during the cross-validation process: {e} !!!")
+print(">>> Stage 2: Determine the depth of MLP.")
+s2_start = timeit.default_timer()
+
+if args.cross_val:
+    try:
+        test_loader = DataLoader(
+            test_dataset, batch_size=1, 
+            shuffle=False, num_workers=4, 
+            generator=g, pin_memory=True
+        )
+        
+        splitor = KFold(n_splits=args.n_fold, shuffle=False)
+        cross_validation(train_data, splitor, test_loader)
+        best_layer = calc_best_layers()
+    except Exception as e:
+        print(f"!!! An unexpected error occurred during the cross-validation process: {e} !!!")
+else:
+    best_layer = 2
+
+s2_end = timeit.default_timer()
+print(f"Stage completed. Duration: {s2_end - s2_start:.2f}s")
+
+model = FitnessModel(best_layer)
+model_dict = model.state_dict().copy()
+best_model = torch.load(fitness_params, map_location=torch.device('cpu')).copy()
+best_dict = {k: v for k, v in best_model.items() if k in model_dict}
+model_dict.update(best_dict)
+model.load_state_dict(model_dict)
+model.to(device)
+
+for name, param in model.named_parameters():
+    if 'down_stream_model' in name:
+        param.requires_grad = True
     else:
-        best_layer = 2
-    
-    s2_end = timeit.default_timer()
-    print(f"Stage completed. Duration: {s2_end - s2_start:.2f}s")
-
-    model = SmallFitness(best_layer)
-    model_dict = model.state_dict().copy()
-    best_model = torch.load(fitness_params, map_location=torch.device('cpu')).copy()
-    best_dict = {k: v for k, v in best_model.items() if k in model_dict}
-    model_dict.update(best_dict)
-    model.load_state_dict(model_dict)
-    model.to(device)
-
-    for name, param in model.named_parameters():
-        if 'down_stream_model' in name:
-            param.requires_grad = True
-        else:
-            param.requires_grad = False
-    
-if model_type == 'large':
-    model = LargeFitness()
-    model_dict = model.state_dict().copy()
-    best_model = torch.load(fitness_params, map_location=torch.device('cpu')).copy()
-    best_dict = {k: v for k, v in best_model.items() if k in model_dict}
-    model_dict.update(best_dict)
-    model.load_state_dict(model_dict)
-    model.to(device)
-
-    for name, param in model.named_parameters():
-        if 'finetune' in name:
-            param.requires_grad = False
-        else:
-            param.requires_grad = True
+        param.requires_grad = False
 
 try:
     train_dataset = EmbeddingData(train_data)
@@ -374,10 +359,11 @@ try:
         generator=g, pin_memory=True
     )
     
-    train_stage = 2 if model_type == 'large' else 3
-    print(f">>> Stage {train_stage}: Supervised training the reward model.")
+    print(">>> Stage 3: Supervised training the reward model.")
     s3_start = timeit.default_timer()
+
     normal_training(model, train_loader, val_loader, finetune=False)
+
     s3_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s3_end - s3_start:.2f}s")
 
@@ -390,20 +376,22 @@ try:
         else:
             param.requires_grad = False
     
-    print(f">>> Stage {train_stage+1}: Fine-tuning the reward model.")
+    print(">>> Stage 4: Fine-tuning the reward model.")
     s4_start = timeit.default_timer()
+
     normal_training(model, train_loader, val_loader, finetune=True)
+
     s4_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s4_end - s4_start:.2f}s")
 
-    print(f">>> Stage {train_stage+2}: Predicting fitness for test mutants.")
+    print(">>> Stage 5: Predicting fitness for test mutants.")
     s5_start = timeit.default_timer()
+
     model.load_state_dict(torch.load(rm_params, map_location=torch.device('cpu')))
     model.eval().to(device)
 
     wt_data = torch.load(os.path.join(embeddings_path, f'{target_name}.pt'), map_location=torch.device('cpu'))
     wt_data = dict_to_device(wt_data, device=next(model.parameters()).device)
-    
     
     pred_targets = [target_name] + test_data['mutant'].tolist()
     pred_sequences = [target_sequence] + test_data['sequence'].tolist()
@@ -423,13 +411,10 @@ try:
     
     s5_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s5_end - s5_start:.2f}s")
-
-    # reward model type
-    rm_type = "LargeFitness" if model_type == 'large' else "SmallFitness"
     
-    # mutation constraints
-    print(f">>> Stage {train_stage+3}: Extract predicted beneficial mutations.")
+    print(">>> Stage 6: Extract predicted beneficial mutations.")
     s6_start = timeit.default_timer()
+
     all_single_mutations = []
     for i, original_residue in enumerate(target_sequence):
         for residue in list(A2int.keys()):
@@ -462,6 +447,7 @@ try:
     
     cst_file = os.path.join(cst_path, f'{target_name}.npz')
     np.savez(cst_file, illegal=illegal, legal=legal)
+
     s6_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s6_end - s6_start:.2f}s")
 
@@ -471,10 +457,8 @@ try:
     print("** Next Steps: Parameters for Subsequent Scripts **")
     print("------------------------------------------------------------")
     print("1. For 2_directed_evolution.py (Virtual Directed Evolution), add the following arguments:")
-    if model_type == "small":
-        print(f"--n_layer {best_layer} \\")
+    print(f"--n_layer {best_layer} \\")
     print(f"--rm_params {rm_params} \\")
-    print(f"--rm_type {rm_type} \\")
     print(f"--constraint {cst_file}")
     print("------------------------------------------------------------")
     print("2. For 3_construct_library.py (Mutant Library Construction), add the following argument:")
