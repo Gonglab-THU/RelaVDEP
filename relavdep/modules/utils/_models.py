@@ -86,6 +86,7 @@ class DownStreamModel(nn.Module):
         x = self.read_out(x)
         return x
 
+##### Base Model #####
 
 class BaseModel:
     def __init__(self, data_dir, device):
@@ -123,9 +124,9 @@ class BaseModel:
                 'pair': preds[0]['4th'][-1].permute(0, 2, 3, 1).contiguous(), 'plddt': preds[2]['4th'][-1]}
         return data
 
-##### Reward Models #####
+##### Fitness Model #####
 
-class SmallFitness(nn.Module):
+class FitnessModel(nn.Module):
     def __init__(self, n_layer):
         super().__init__()
         self.Fitness = PretrainModel(node_dim = 32, num_layer = 2, n_head = 8, pair_dim = 32)
@@ -150,38 +151,9 @@ class SmallFitness(nn.Module):
         delta_value = torch.sum((mut_value - wt_value).squeeze(-1) * mut_pos, dim=1)
         return self.finetune_coef * delta_value + self.finetune_cons
 
-class LargeFitness(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.Fitness = PretrainModel(node_dim = 32, num_layer = 2, n_head = 8, pair_dim = 32)
-        self.down_stream_model = nn.Sequential(nn.Linear(32, 16), 
-                                               nn.LeakyReLU(),
-                                               nn.Linear(16, 8),
-                                               nn.LeakyReLU(),
-                                               nn.Linear(8, 1))
-        self.finetune_coef = nn.Parameter(torch.tensor([0.01], requires_grad = True))
-        self.finetune_cons = nn.Parameter(torch.tensor([0.0], requires_grad = True))
-    
-    def forward(self, wt_data, mut_data):
-        wt_pretrained_embedding = self.Fitness({'embedding': wt_data['embedding'], 
-                                                'pair': wt_data['pair'], 
-                                                'plddt': wt_data['plddt']})
+##### Stability Model (optional) #####
 
-        mut_pretrained_embedding = self.Fitness({'embedding': mut_data['embedding'], 
-                                                 'pair': mut_data['pair'], 
-                                                 'plddt': mut_data['plddt']})
-        
-        mut_pos = (wt_data['tokens'] != mut_data['tokens']).int()
-        
-        wt_value = self.down_stream_model(wt_pretrained_embedding)
-        mut_value = self.down_stream_model(mut_pretrained_embedding)
-        
-        delta_value = torch.sum((mut_value - wt_value).squeeze(-1) * mut_pos, dim=1)
-        return self.finetune_coef * delta_value + self.finetune_cons
-
-##### Reward Models (optional) #####
-
-class SmallStab(nn.Module):
+class StabilityModel(nn.Module):
     def __init__(self, n_layer, node_dim = 32, num_layer = 3, n_head = 8, pair_dim = 64):
         super().__init__()
         self.esm2_transform = nn.Sequential(nn.LayerNorm(1280),
@@ -213,45 +185,6 @@ class SmallStab(nn.Module):
 
         wt_value = self.down_stream_model(wt_embedding, wt_data['embedding'])
         mut_value = self.down_stream_model(mut_embedding, mut_data['embedding'])
-
-        delta_value = torch.sum((mut_value - wt_value).squeeze(-1) * mut_pos, dim=1)
-        return self.finetune_coef * delta_value + self.finetune_cons
-
-class LargeStab(nn.Module):
-    def __init__(self, node_dim = 32, num_layer = 3, n_head = 8, pair_dim = 64):
-        super().__init__()
-        self.esm2_transform = nn.Sequential(nn.LayerNorm(1280),
-                                            nn.Linear(1280, 640),
-                                            nn.LeakyReLU(),
-                                            nn.Linear(640, 320),
-                                            nn.LeakyReLU(),
-                                            nn.Linear(320, node_dim),
-                                            nn.LeakyReLU(),
-                                            nn.Linear(node_dim, node_dim))
-        self.pair_encoder = nn.Linear(3, pair_dim)
-        self.blocks = nn.ModuleList([GAT(node_dim, n_head, pair_dim) for _ in range(num_layer)])
-        self.down_stream_model = nn.Sequential(nn.LayerNorm(node_dim),
-                                               nn.Linear(node_dim, node_dim // 2),
-                                               nn.LeakyReLU(),
-                                               nn.Linear(node_dim // 2, 1))
-        self.finetune_coef = nn.Parameter(torch.tensor([0.01], requires_grad = True))
-        self.finetune_cons = nn.Parameter(torch.tensor([0.0], requires_grad = True))
-    
-    def forward(self, wt_data, mut_data):
-        wt_embedding = self.esm2_transform(wt_data['embedding'])
-        mut_embedding = self.esm2_transform(mut_data['embedding'])
-                
-        wt_pair = self.pair_encoder(wt_data['pair'])
-        mut_pair = self.pair_encoder(mut_data['pair'])
-        
-        for block in self.blocks:
-            wt_embedding, wt_pair = block(wt_embedding, wt_pair, wt_data['plddt'].unsqueeze(-1))
-            mut_embedding, mut_pair = block(mut_embedding, mut_pair, mut_data['plddt'].unsqueeze(-1))
-
-        mut_pos = (wt_data['tokens'] != mut_data['tokens']).int()
-        
-        wt_value = self.down_stream_model(wt_embedding)
-        mut_value = self.down_stream_model(mut_embedding)
 
         delta_value = torch.sum((mut_value - wt_value).squeeze(-1) * mut_pos, dim=1)
         return self.finetune_coef * delta_value + self.finetune_cons
