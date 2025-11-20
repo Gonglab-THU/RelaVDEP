@@ -4,13 +4,13 @@ import torch
 import pandas as pd
 import numpy as np
 import subprocess
-from tqdm import tqdm
-
 import ray
 import random
 import logomaker
 import seaborn as sns
 import matplotlib.pyplot as plt
+
+from tqdm import tqdm
 from collections import Counter
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
@@ -26,8 +26,8 @@ from scripts.mutant_library.functions import *
 parser = argparse.ArgumentParser(description='Construct mutant library')
 parser.add_argument('--fasta', type=str, required=True, help='Protein sequence')
 parser.add_argument('--mutants', type=str, required=True, help='Mutants data')
-parser.add_argument('--output', type=str, required=True, help='Output directory')
 
+parser.add_argument('--output', type=str, default='outputs', help='Output directory (default: %(default)s)')
 parser.add_argument('--cutoff', type=float, default=0, help='Fitness cutoff (default: %(default)s)')
 parser.add_argument('--size', type=int, default=10, help='Mutant library size (default: %(default)s)')
 parser.add_argument('--seed', type=int, default=42, help='Random seed (default: %(default)s)')
@@ -135,6 +135,7 @@ def run_second_stage():
     
     print("[Step 1/5] Performing t-SNE on DHR embeddings...")
     step_start = time.time()
+    
     tsne = TSNE(n_components=2, random_state=args.seed)
     tsne_result = tsne.fit_transform(sele_embeddings)
     print(f"  -> t-SNE completed. Duration: {format_time(time.time() - step_start)}")
