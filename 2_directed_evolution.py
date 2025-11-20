@@ -35,7 +35,6 @@ parser.add_argument('--constraint', type=str, default=None, help='Constraint fil
 parser.add_argument('--data_dir', type=str, default='models', help='Directory for model parameters (default: %(default)s)')
 parser.add_argument('--output', type=str, default='outputs', help='Output directory (default: %(default)s)')
 parser.add_argument('--temp_dir', type=str, default='/tmp/ray', help='Temporary directory for spilling object store (default: %(default)s)')
-parser.add_argument('--rm_type', type=str, default='SmallFitness', choices=['SmallFitness', 'LargeFitness'], help='Type of the reward model (default: %(default)s)')
 parser.add_argument('--max_mut', type=int, default=4, help='Maximum mutation counts (default: %(default)s)')
 parser.add_argument('--n_gpus', type=int, default=1, help='Number of GPUs (default: %(default)s)')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of downstream MLP layers (default: %(default)s)')
