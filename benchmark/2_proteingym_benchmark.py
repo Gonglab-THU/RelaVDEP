@@ -20,13 +20,11 @@ from utils._train_rm import *
 @ray.remote(num_gpus=0.5)
 def _evaluate_single_dms(cfg: DictConfig, DMS_id: str) -> None:
     try:
-        from relavdep.modules.utils._models import SmallFitness, LargeFitness
+        from relavdep.modules.utils._models import FitnessModel
 
         os.makedirs(os.path.join(cfg.output_folder, cfg.cv_scheme, DMS_id), exist_ok=True)
         df, labels, wt_embedding, embeddings = prepare_inputs(cfg, DMS_id)
         device = 'cuda' if cfg.use_gpu and torch.cuda.is_available() else 'cpu'
-
-        model_type = "large" if len(df) > cfg.type_cutoff else "small"
         df_out = df[["mutant"]].copy()
         df_out = df_out.assign(fold=np.nan, y=np.nan, y_pred=np.nan, y_var=np.nan)
         
@@ -46,11 +44,7 @@ def _evaluate_single_dms(cfg: DictConfig, DMS_id: str) -> None:
             label_train, label_test = split_inputs(train_idx, test_idx, labels)
             embeddings_train, embeddings_test = split_inputs(train_idx, test_idx, embeddings)
 
-            if model_type == "small":
-                model = SmallFitness(cfg.n_layer)
-            else:
-                model = LargeFitness()
-            
+            model = FitnessModel(cfg.n_layer)
             model_dict = model.state_dict().copy()
             best_model = torch.load(cfg.fitness_params, map_location=torch.device('cpu')).copy()
             best_dict = {k: v for k, v in best_model.items() if k in model_dict}
@@ -58,18 +52,11 @@ def _evaluate_single_dms(cfg: DictConfig, DMS_id: str) -> None:
             model.load_state_dict(model_dict)
             model.to(device)
 
-            if model_type == "small":
-                for name, param in model.named_parameters():
-                    if 'down_stream_model' in name:
-                        param.requires_grad = True
-                    else:
-                        param.requires_grad = False
-            else:
-                for name, param in model.named_parameters():
-                    if 'finetune' in name:
-                        param.requires_grad = False
-                    else:
-                        param.requires_grad = True
+            for name, param in model.named_parameters():
+                if 'down_stream_model' in name:
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
 
             best_params = os.path.join(cfg.output_folder, f'{cfg.cv_scheme}/{DMS_id}/fold{test_fold}_best.pth')
             
