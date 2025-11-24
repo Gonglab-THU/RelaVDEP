@@ -456,7 +456,8 @@ try:
     print("** Next Steps: Parameters for Subsequent Scripts **")
     print("------------------------------------------------------------")
     print("1. For 2_directed_evolution.py (Virtual Directed Evolution), add the following arguments:")
-    print(f"--n_layer {best_layer} \\")
+    if args.cross_val:
+        print(f"--n_layer {best_layer} \\")
     print(f"--rm_params {rm_params} \\")
     print(f"--constraint {cst_file}")
     print("------------------------------------------------------------")
