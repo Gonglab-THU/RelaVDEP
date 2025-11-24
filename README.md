@@ -44,9 +44,10 @@ python 1_supervised_training.py --fasta relavdep/data/target_sequence/TARGET.fas
 Run `python 1_supervised_training.py -h` to view all optional arguments. Upon completion, the following information and files will be obtained:
 
 - Parameters to be used in Step 3:
-  - `n_layer` (possible): MLP Layer Count (Used only if applicable)
-  - `TARGET.pth`: Parameters of the trained reward model
+  - `TARGET.pth`: Parameters of the reward model
   - `TARGET.npz`: Mutation site constraints
+  - `n_layer`: MLP Layer Count (Only provided after cross-validation)
+
 - Parameter to be used in Step 4:
   - `cutoff`: Fitness cutoff value of the target protein
 
