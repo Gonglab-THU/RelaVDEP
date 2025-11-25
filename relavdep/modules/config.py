@@ -23,7 +23,6 @@ class Config(BaseConfig):
         self.max_mutations = args.max_mut
         self.data_dir = args.data_dir
         self.rm_params = args.rm_params
-        self.rm_type = args.rm_type
         self.n_player = args.n_player
         self.batch_size = args.batch_size
         self.n_gpus = args.n_gpus
