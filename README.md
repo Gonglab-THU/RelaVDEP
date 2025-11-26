@@ -55,10 +55,10 @@ Run `python 1_supervised_training.py -h` to view all optional arguments. Upon co
 Apply the RelaVDEP model to evolve the target protein via:
 
 ```
-python 2_directed_evolution.py --fasta relavdep/data/target_sequence/TARGET.fasta --rm_params outputs/TARGET/TARGET.pth --constraint relavdep/data/mutation_constraint/TARGET.npz --output outputs/TARGET --n_layer n_layer
+python 2_directed_evolution.py --fasta relavdep/data/target_sequence/TARGET.fasta --rm_params outputs/TARGET/TARGET.pth --constraint relavdep/data/mutation_constraint/TARGET.npz --output outputs/TARGET
 ```
 
-Here, reward model parameters (`--rm_params`), mutation constraints (`--constraint`) and MLP layer count (`--n_layer`) are obtained in step 2.
+Here, reward model parameters (`--rm_params`) and mutation constraints (`--constraint`) are obtained in step 2.
 
 Run `python 2_directed_evolution.py -h` to get optional arguments. After completing this step, the following files will be obtained:
 
