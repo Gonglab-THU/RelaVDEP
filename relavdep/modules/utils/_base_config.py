@@ -33,7 +33,7 @@ class BaseConfig:
         self.test_delay = 5
         self.play_delay = 0.1
         self.reanalyse_delay = 10
-        
+
         # player
         self.temp_threshold = None
 

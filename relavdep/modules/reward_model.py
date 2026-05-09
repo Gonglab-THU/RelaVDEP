@@ -15,14 +15,14 @@ class RewardModel:
         best_dict = torch.load(config.rm_params, map_location=torch.device(self.device))
         self.fitness_model.load_state_dict(best_dict)
         self.fitness_model.eval().to(self.device)
-    
+
     def pred_fitness(self, wt_data, mut_data):
         wt_data = dict_to_device(wt_data, self.device)
         mut_data = dict_to_device(mut_data, self.device)
         with torch.no_grad():
             fitness = self.fitness_model(wt_data, mut_data)
         return fitness.item()
-    
+
     def inference(self, seq):
         data = self.base_model.inference(seq)
         return data
@@ -38,14 +38,14 @@ class RewardModel:
                     wt_data = self.inference(wt_seq)
                     wt_data = dict_to_device(wt_data, 'cpu')
                     manager.save_prediction.remote(wt_seq, wt_data)
-                
+
                 if mut_seq in ray.get(manager.get_predictions.remote()):
                     mut_data = ray.get(manager.get_prediction_item.remote(mut_seq))
                 else:
                     mut_data = self.inference(mut_seq)
                     mut_data = dict_to_device(mut_data, 'cpu')
                     manager.save_prediction.remote(mut_seq, mut_data)
-                
+
                 fitness = self.pred_fitness(wt_data, mut_data)
                 manager.save_result.remote(task, fitness)
                 manager.remove_task.remote(task)

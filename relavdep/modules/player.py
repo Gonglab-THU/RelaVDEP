@@ -22,7 +22,7 @@ class PlayHistory:
     def store_search_stats(self, root, action_space):
         if root is not None:
             sum_visits = sum([child.visit_count for child in root.children.values()])
-            self.child_visits.append([root.children[a].visit_count / sum_visits 
+            self.child_visits.append([root.children[a].visit_count / sum_visits
                                       if a in root.children else 0 for a in action_space])
             self.root_values.append(root.value())
         else:
@@ -37,7 +37,7 @@ class Player:
         self.model.set_weights(initial_checkpoint["weights"])
         self.model.to(torch.device('cuda' if config.play_on_gpu else 'cpu'))
         self.model.eval()
-        
+
         self.mut_env = Environment(config, torch.device('cuda' if config.play_on_gpu else 'cpu'))
         self.mut_env.init_model()
 
@@ -58,7 +58,7 @@ class Player:
                     all_length.append(len(play_history.action_history) - 1)
                     all_values.append(np.mean(values) if values else 0)
                     all_rewards.append(play_history.reward_history)
-                shared_storage.set_info.remote({"episode_length": np.mean(all_length), "mean_value": np.mean(all_values), 
+                shared_storage.set_info.remote({"episode_length": np.mean(all_length), "mean_value": np.mean(all_values),
                                                 "total_reward": np.mean([sum(rewards) for rewards in all_rewards])})
                 if np.mean([max(rewards) for rewards in all_rewards]) > max_reward:
                     max_reward = np.mean([max(rewards) for rewards in all_rewards])
@@ -73,16 +73,16 @@ class Player:
         play_history.observation_history.append(observation)
         play_history.reward_history.append(0)
         done = False
-        
+
         with torch.no_grad():
             while not done and len(play_history.action_history) <= self.config.max_mutations:
-                root = MCTS(self.config).search(self.model, [observation], self.config.avaliables, 
+                root = MCTS(self.config).search(self.model, [observation], self.config.avaliables,
                                                 play_history.action_history, self.mut_env.mut_count,
                                                 add_exploration_noise)
-                action = self.select_action(root, temperature if not temp_threshold 
+                action = self.select_action(root, temperature if not temp_threshold
                                             or len(play_history.action_history) < temp_threshold else 0)
                 observation, done = self.mut_env.step(action)
-                
+
                 task = self.get_mut(self.config.sequence, self.mut_env.curr_seq)
                 if task not in ray.get(manager.get_results_keys.remote()):
                     manager.add_task.remote(task, self.config.sequence, self.mut_env.curr_seq)
@@ -90,7 +90,7 @@ class Player:
                         time.sleep(self.config.play_delay)
                 prediction = ray.get(manager.get_result_item.remote(task))
                 reward = self.mut_env.get_reward(prediction)
-                
+
                 play_history.store_search_stats(root, self.config.action_space)
                 play_history.action_history.append(action)
                 play_history.observation_history.append(observation)
@@ -111,7 +111,7 @@ class Player:
             visit_count_distribution = visit_count_distribution / sum(visit_count_distribution)
             action = np.random.choice(actions, p=visit_count_distribution)
         return action
-    
+
     @staticmethod
     def get_mut(wt_seq, mut_seq):
         mut_info = [wt_seq[i] + f'{i+1}' + mut_seq[i] for i in range(len(wt_seq)) if wt_seq[i] != mut_seq[i]]

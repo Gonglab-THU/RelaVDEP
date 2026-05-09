@@ -62,7 +62,7 @@ class EmbeddingData(Dataset):
         embedding = {k: v.squeeze() for k, v in embedding.items()}
         label = self.data.iloc[idx].label
         return self.wt_data, embedding, torch.tensor(label).to(torch.float32)
-    
+
     def __len__(self):
         return len(self.data)
 
@@ -78,7 +78,7 @@ def sft(cfg, test_fold, model, DMS_id, wt_embedding, embeddings_train, label_tra
     val_data = raw_data.sample(frac=0.2, random_state=cfg.seed, axis=0)
     val_dataset = EmbeddingData(val_data, wt_data, embeddings_train)
     val_loader = DataLoader(
-        val_dataset, batch_size=cfg.batch_size, shuffle=False, 
+        val_dataset, batch_size=cfg.batch_size, shuffle=False,
         num_workers=4, generator=g, pin_memory=True
     )
 
@@ -87,11 +87,11 @@ def sft(cfg, test_fold, model, DMS_id, wt_embedding, embeddings_train, label_tra
     train_data = raw_data[mask].copy()
     train_dataset = EmbeddingData(train_data, wt_data, embeddings_train)
     train_loader = DataLoader(
-        train_dataset, batch_size=cfg.batch_size, 
+        train_dataset, batch_size=cfg.batch_size,
         shuffle=True, num_workers=4, drop_last=True,
         generator=g, pin_memory=True
     )
-    
+
     if finetune:
         params_to_optimize = []
 
@@ -104,15 +104,15 @@ def sft(cfg, test_fold, model, DMS_id, wt_embedding, embeddings_train, label_tra
         optimizer = torch.optim.Adam(params_to_optimize)
     else:
         optimizer = torch.optim.Adam(filter(lambda x: x.requires_grad, model.parameters()), lr=cfg.init_lr)
-    
+
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, factor=0.5, patience=10)
-    
+
     best_loss = float('inf')
     stop_step = 0
     train_losses, val_losses = [], []
 
     pbar = tqdm(range(cfg.epochs), desc='Training' if not finetune else 'Fine-tuning')
-    
+
     for _ in range(cfg.epochs):
         train_loss = train_step(model, optimizer, train_loader, finetune)
         train_losses.append(train_loss)
@@ -120,7 +120,7 @@ def sft(cfg, test_fold, model, DMS_id, wt_embedding, embeddings_train, label_tra
         val_loss = val_step(model, val_loader, finetune)
         val_losses.append(val_loss)
         scheduler.step(val_loss)
-        
+
         if val_loss < best_loss:
             stop_step = 0
             best_loss = val_loss
@@ -130,7 +130,7 @@ def sft(cfg, test_fold, model, DMS_id, wt_embedding, embeddings_train, label_tra
                 torch.save(model.state_dict(), os.path.join(cfg.output_folder, f'{cfg.cv_scheme}/{DMS_id}/fold{test_fold}_{DMS_id}.pth'))
         else:
             stop_step += 1
-        
+
         pbar.update(1)
         if stop_step >= 15:
             pbar.total = pbar.n
@@ -150,5 +150,5 @@ def inference(test_idx, test_fold, model, wt_embedding, embeddings_test, label_t
         df_out.loc[test_idx, "y"] = label_test.detach().cpu().numpy()
         df_out.loc[test_idx, "y_pred"] = pred_fitness
         df_out.loc[test_idx, "y_var"] = statistics.stdev(pred_fitness)
-    
+
     return df_out

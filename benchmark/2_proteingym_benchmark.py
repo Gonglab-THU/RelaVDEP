@@ -27,13 +27,13 @@ def _evaluate_single_dms(cfg: DictConfig, DMS_id: str) -> None:
         device = 'cuda' if cfg.use_gpu and torch.cuda.is_available() else 'cpu'
         df_out = df[["mutant"]].copy()
         df_out = df_out.assign(fold=np.nan, y=np.nan, y_pred=np.nan, y_var=np.nan)
-        
+
         unique_folds = df[cfg.cv_scheme].unique()
-        
+
         for test_fold in unique_folds:
             np.random.seed(cfg.seed)
             torch.manual_seed(cfg.seed)
-    
+
             if torch.cuda.is_available():
                 torch.cuda.manual_seed(cfg.seed)
                 torch.cuda.manual_seed_all(cfg.seed)
@@ -59,10 +59,10 @@ def _evaluate_single_dms(cfg: DictConfig, DMS_id: str) -> None:
                     param.requires_grad = False
 
             best_params = os.path.join(cfg.output_folder, f'{cfg.cv_scheme}/{DMS_id}/fold{test_fold}_best.pth')
-            
+
             if not os.path.exists(best_params):
                 sft(cfg, test_fold, model, DMS_id, wt_embedding, embeddings_train, label_train, finetune=False)
-            
+
             model.load_state_dict(torch.load(best_params, map_location=torch.device('cpu')))
             model.to(device)
 
@@ -71,9 +71,9 @@ def _evaluate_single_dms(cfg: DictConfig, DMS_id: str) -> None:
                     param.requires_grad = True
                 else:
                     param.requires_grad = False
-            
+
             model_params = os.path.join(cfg.output_folder, f'{cfg.cv_scheme}/{DMS_id}/fold{test_fold}_{DMS_id}.pth')
-            
+
             if not os.path.exists(model_params):
                 sft(cfg, test_fold, model, DMS_id, wt_embedding, embeddings_train, label_train, finetune=True)
 
@@ -90,8 +90,8 @@ def _evaluate_single_dms(cfg: DictConfig, DMS_id: str) -> None:
         df_out.to_csv(out_path, index=False)
 
         return {
-            "DMS_id": DMS_id, 
-            "status": "SUCCESS", 
+            "DMS_id": DMS_id,
+            "status": "SUCCESS",
             "spearman": f"{spearman:.4f}",
             "MAE": f"{mae:.4f}"
         }
@@ -100,8 +100,8 @@ def _evaluate_single_dms(cfg: DictConfig, DMS_id: str) -> None:
         error_msg = f"Error: {e}"
         print(f"{error_msg} (DMS ID: {DMS_id})", flush=True)
         return {
-            "DMS_id": DMS_id, 
-            "status": "FAILURE", 
+            "DMS_id": DMS_id,
+            "status": "FAILURE",
             "error_message": error_msg
         }
 
@@ -112,11 +112,11 @@ def _evaluate_single_dms(cfg: DictConfig, DMS_id: str) -> None:
 )
 def main(cfg: DictConfig) -> None:
     ray.init(
-        log_to_driver=False, 
-        _temp_dir=os.path.abspath("/tmp/ray"), 
+        log_to_driver=False,
+        _temp_dir=os.path.abspath("/tmp/ray"),
         num_gpus=cfg.num_gpus
     )
-    
+
     df_ref = filter_datasets(cfg)
     futures = []
 
@@ -133,8 +133,8 @@ def main(cfg: DictConfig) -> None:
 
     while completed_count < total_tasks:
         ready_futures, pending_futures = ray.wait(
-            pending_futures, 
-            num_returns=1, 
+            pending_futures,
+            num_returns=1,
             timeout=cfg.timeout
         )
 
@@ -148,11 +148,11 @@ def main(cfg: DictConfig) -> None:
                           f"(Spearman: {result['spearman']}, MAE: {result['MAE']})")
                 else:
                     print(f"[{completed_count}/{total_tasks}] FAILURE: {result['DMS_id']} ({result['error_message']})")
-            
+
             except ray.exceptions.RayTaskError as e:
                 completed_count += 1
                 print(f"[{completed_count}/{total_tasks}] CRASHED: A task failed unexpectedly. Error details: {e}", flush=True)
-        
+
         elif pending_futures:
             print(f"[PROGRESS] {completed_count}/{total_tasks} tasks completed. Still running...", flush=True)
 

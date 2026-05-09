@@ -413,8 +413,8 @@ class BlockV2(nn.Module):
         pair_feats = self.forNextBlock(pair_feats, cadistavg)
 
         return Predxyz, PredCadistavg, Plddt, seq_feats, pair_feats
-    
-        
+
+
 class SPIRED_Model(nn.Module):
     def __init__(self, depth, channel, device_list):
         super().__init__()
@@ -867,27 +867,27 @@ class Model(nn.Module):
         super().__init__()
 
         self.esm2_transform = torch.nn.Sequential(
-            nn.LayerNorm(1280), 
-            nn.Linear(1280, 640), 
-            nn.LeakyReLU(), 
-            nn.Linear(640, 320), 
-            nn.LeakyReLU(), 
-            nn.Linear(320, node_dim), 
-            nn.LeakyReLU(), 
+            nn.LayerNorm(1280),
+            nn.Linear(1280, 640),
+            nn.LeakyReLU(),
+            nn.Linear(640, 320),
+            nn.LeakyReLU(),
+            nn.Linear(320, node_dim),
+            nn.LeakyReLU(),
             nn.Linear(node_dim, node_dim)
         )
         self.pair_encoder = nn.Linear(3, pair_dim)
         self.blocks = nn.ModuleList([GAT(node_dim, n_head, pair_dim) for _ in range(num_layer)])
         self.mlp = nn.Sequential(
-            nn.LayerNorm(node_dim), 
-            nn.Linear(node_dim, node_dim // 2), 
-            nn.LeakyReLU(), 
+            nn.LayerNorm(node_dim),
+            nn.Linear(node_dim, node_dim // 2),
+            nn.LeakyReLU(),
             nn.Linear(node_dim // 2, 1)
         )
         self.mlp_for_dTm = nn.Sequential(
-            nn.LayerNorm(node_dim), 
-            nn.Linear(node_dim, node_dim // 2), 
-            nn.LeakyReLU(), 
+            nn.LayerNorm(node_dim),
+            nn.Linear(node_dim, node_dim // 2),
+            nn.LeakyReLU(),
             nn.Linear(node_dim // 2, 1)
         )
         self.finetune_ddG_coef = nn.Parameter(torch.tensor([1.0], requires_grad=True))

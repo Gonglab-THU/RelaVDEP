@@ -25,7 +25,7 @@ all_fitness = list(raw_data['fitness'])
 
 ckpt_path = os.path.dirname(os.path.abspath(__file__))
 batch_size = 100
-model = MyEncoder(bert_path=[os.path.join(ckpt_path, '../Dense-Homolog-Retrieval/dhr_qencoder.pt'), 
+model = MyEncoder(bert_path=[os.path.join(ckpt_path, '../Dense-Homolog-Retrieval/dhr_qencoder.pt'),
                              os.path.join(ckpt_path, '../Dense-Homolog-Retrieval/dhr_cencoder.pt')])
 trainer = pl.Trainer(devices=[0], accelerator="gpu", accumulate_grad_batches=4, precision=32, fast_dev_run=False)
 

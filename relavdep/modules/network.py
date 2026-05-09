@@ -18,12 +18,12 @@ class RepresentationNetwork(nn.Module):
                                            nn.Linear(512, 256),
                                            nn.LeakyReLU(),
                                            nn.Linear(256, config.hidden_dim))
-        
+
         self.representation_network = nn.Sequential(nn.Conv1d(config.hidden_dim + 20, config.hidden_dim, 3, 1, 1),
-                                                    nn.ReLU(), 
+                                                    nn.ReLU(),
                                                     nn.Conv1d(config.hidden_dim, config.hidden_dim, 3, 1, 1),
                                                     nn.ReLU())
-        
+
     def forward(self, observation):
         observation = Batch.from_data_list(observation).to(next(self.representation_network.parameters()).device)
         esm_embedding = self.esm_transform(observation.node_s)
@@ -39,26 +39,26 @@ class PredictionNetwork(nn.Module):
         super().__init__()
         self.config = config
         self.output_size = 2 * config.support_size + 1
-        self.gvp_node_p = nn.Sequential(LayerNorm(config.node_in_dim), 
+        self.gvp_node_p = nn.Sequential(LayerNorm(config.node_in_dim),
                                         GVP(config.node_in_dim, config.node_h_dim, activations=(None, None)))
 
-        self.gvp_edge_p = nn.Sequential(LayerNorm(config.edge_in_dim), 
+        self.gvp_edge_p = nn.Sequential(LayerNorm(config.edge_in_dim),
                                         GVP(config.edge_in_dim, config.edge_h_dim, activations=(None, None)))
 
-        self.prediction_layers = nn.ModuleList(GVPConvLayer(config.node_h_dim, config.edge_h_dim, drop_rate=config.dropout) 
+        self.prediction_layers = nn.ModuleList(GVPConvLayer(config.node_h_dim, config.edge_h_dim, drop_rate=config.dropout)
                                                for _ in range(config.n_layers))
-        
-        self.prediction_policy_network = nn.Sequential(LayerNorm(config.node_h_dim), 
+
+        self.prediction_policy_network = nn.Sequential(LayerNorm(config.node_h_dim),
                                                        GVP(config.node_h_dim, (config.node_out_dim, 0), activations=(None, None)))
-        
+
         self.prediction_policy_output = nn.Sequential(nn.Linear(config.length * config.node_out_dim, config.length * 20),
                                                       nn.ReLU(),
                                                       nn.Linear(config.length * 20, config.length * 20))
-        
-        self.prediction_value_network = nn.Sequential(LayerNorm(config.node_h_dim), 
+
+        self.prediction_value_network = nn.Sequential(LayerNorm(config.node_h_dim),
                                                       GVP(config.node_h_dim, (config.node_out_dim, 0), activations=(None, None)))
-        
-        self.prediction_value_output = nn.Sequential(nn.Linear(config.node_out_dim, config.node_out_dim // 2), 
+
+        self.prediction_value_output = nn.Sequential(nn.Linear(config.node_out_dim, config.node_out_dim // 2),
                                                      nn.LeakyReLU(),
                                                      nn.Linear(config.node_out_dim // 2, self.output_size))
 
@@ -69,18 +69,18 @@ class PredictionNetwork(nn.Module):
         batch_size = len(hidden_state.ptr) - 1
         nodes = (hidden_state.node_s, hidden_state.node_v)
         edges = (hidden_state.edge_s, hidden_state.edge_v)
-        
+
         global_nodes = self.gvp_node_p(nodes)
         global_edges = self.gvp_edge_p(edges)
         for layer in self.prediction_layers:
             global_nodes = layer(global_nodes, hidden_state.edge_index, global_edges)
-        
+
         # policy
         policy_output = self.prediction_policy_network(global_nodes)                            # [N*L, node_out_dim]
         policy_output = policy_output.reshape(batch_size, -1, self.config.node_out_dim)         # [N, L, node_out_dim]
         policy_output = policy_output * hidden_state.avaliable_pos.reshape(batch_size, -1, 1)   # [N, L, 1]
         policy_output = self.prediction_policy_output(policy_output.view(batch_size, -1))       # [N, L*20]
-        
+
         # value
         value_output = self.prediction_value_network(global_nodes)                              # [N*L, node_out_dim]
         value_output = scatter_sum(value_output, hidden_state.batch, dim=0)                     # [N, node_out_dim]
@@ -93,24 +93,24 @@ class DynamicsNetwork(nn.Module):
         self.config = config
         self.output_size = 2 * config.support_size + 1
         self.dynamics_state_network = nn.Sequential(nn.Conv1d(config.hidden_dim + 20, config.hidden_dim, 3, 1, 1),
-                                                    nn.ReLU(), 
+                                                    nn.ReLU(),
                                                     nn.Conv1d(config.hidden_dim, config.hidden_dim, 3, 1, 1),
                                                     nn.ReLU())
 
         self.gvp_node_r = nn.Sequential(LayerNorm((config.node_in_dim[0] + 20, config.node_in_dim[1])),
-                                        GVP((config.node_in_dim[0] + 20, config.node_in_dim[1]), 
+                                        GVP((config.node_in_dim[0] + 20, config.node_in_dim[1]),
                                             config.node_h_dim, activations=(None, None)))
 
-        self.gvp_edge_r = nn.Sequential(LayerNorm(config.edge_in_dim), 
+        self.gvp_edge_r = nn.Sequential(LayerNorm(config.edge_in_dim),
                                         GVP(config.edge_in_dim, config.edge_h_dim, activations=(None, None)))
 
-        self.dynamics_layers = nn.ModuleList(GVPConvLayer(config.node_h_dim, config.edge_h_dim, drop_rate=config.dropout) 
+        self.dynamics_layers = nn.ModuleList(GVPConvLayer(config.node_h_dim, config.edge_h_dim, drop_rate=config.dropout)
                                              for _ in range(config.n_layers))
-        
-        self.dynamics_reward_network = nn.Sequential(LayerNorm(config.node_h_dim), 
+
+        self.dynamics_reward_network = nn.Sequential(LayerNorm(config.node_h_dim),
                                                      GVP(config.node_h_dim, (config.node_out_dim, 0), activations=(None, None)))
 
-        self.dynamics_reward_output = nn.Sequential(nn.Linear(config.node_out_dim, config.node_out_dim // 2), 
+        self.dynamics_reward_output = nn.Sequential(nn.Linear(config.node_out_dim, config.node_out_dim // 2),
                                                     nn.LeakyReLU(),
                                                     nn.Linear(config.node_out_dim // 2, self.output_size))
 
@@ -122,7 +122,7 @@ class DynamicsNetwork(nn.Module):
         assert action.shape[1] == 1
 
         action = action.to(next(self.dynamics_state_network.parameters()).device)
-        action_onehot = torch.zeros(size=(action.size(0), self.config.length * 20), dtype=torch.float32, 
+        action_onehot = torch.zeros(size=(action.size(0), self.config.length * 20), dtype=torch.float32,
                                     device=next(self.dynamics_state_network.parameters()).device)
         action_onehot.scatter_(1, action, 1.0)
         action_onehot = action_onehot.view(action.size(0), -1, 20)
@@ -133,26 +133,26 @@ class DynamicsNetwork(nn.Module):
         curr_seq_state = torch.cat([node_scalar, action_onehot], dim=-1).permute(0, 2, 1)               # [N, hidden_dim+20, L]
         next_seq_state = self.dynamics_state_network(curr_seq_state)                                    # [N, hidden_dim, L]
         next_hidden_state.node_s = next_seq_state.permute(0, 2, 1).reshape(-1, self.config.hidden_dim)  # [N*L, hidden_dim]
-        
+
         for i in range(action.size(0)):
             next_hidden_state[i].avaliable_pos[torch.div(action[i], 20, rounding_mode='trunc')] = 0
 
         # dynamics reward
         hidden_state_input = hidden_state.clone()
         hidden_state_input.node_s = torch.cat([node_scalar, action_onehot], dim=-1).reshape(-1, self.config.hidden_dim + 20)
-        
+
         nodes = (hidden_state_input.node_s, hidden_state_input.node_v)
         edges = (hidden_state_input.edge_s, hidden_state_input.edge_v)
         nodes = self.gvp_node_r(nodes)
         edges = self.gvp_edge_r(edges)
-        
+
         for layer in self.dynamics_layers:
             nodes = layer(nodes, hidden_state_input.edge_index, edges)
         reward = self.dynamics_reward_network(nodes)
         reward = scatter_sum(reward, hidden_state.batch, dim=0)
         reward = self.dynamics_reward_output(reward)
         return next_hidden_state, reward
-    
+
 class Network(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -165,15 +165,15 @@ class Network(nn.Module):
         hidden_state = self.representation_network(observation)
         logits, value = self.prediction_network(hidden_state)
         return hidden_state, 0, logits, value
-    
+
     def recurrent_inference(self, hidden_state, action):
         next_hidden_state, reward = self.dynamics_network(hidden_state, action)
         logits, value = self.prediction_network(next_hidden_state)
         return next_hidden_state, reward, logits, value
-    
+
     def get_weights(self):
         return {k: v.cpu() for k, v in self.state_dict().items()}
-    
+
     def set_weights(self, weights):
         self.load_state_dict(weights)
 
@@ -197,7 +197,7 @@ def dict_to_cpu(dict_input):
         else:
             dict_output[key] = value
     return dict_output
-    
+
 def scalar_to_support(x, support_size):
     x = torch.sign(x) * (torch.sqrt(torch.abs(x) + 1) - 1) + 1e-3 * x
     x = torch.clamp(x, -support_size, support_size)
@@ -234,8 +234,8 @@ def structure_to_graph(structure, n_embedding=16, top_k=12, n_rbf=16):
         # edge vector: [n_edges, 1, 3]
         edge_v = F.normalize(edge_vectors).unsqueeze(-2)
 
-        graph = GeoData.Data(edge_index=edge_index, 
-                             node_s=None, node_v=node_v, 
+        graph = GeoData.Data(edge_index=edge_index,
+                             node_s=None, node_v=node_v,
                              edge_s=edge_s, edge_v=edge_v)
     return graph
 
@@ -262,4 +262,3 @@ def rbf(D, D_min=0., D_max=20., D_count=16):
         D_sigma = (D_max - D_min) / D_count
         D_expand = torch.unsqueeze(D, -1)
     return torch.exp(-((D_expand - D_mu) / D_sigma) ** 2)
-    

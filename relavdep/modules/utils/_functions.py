@@ -35,7 +35,7 @@ def set_worker_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    
+
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
@@ -48,20 +48,20 @@ def apply_mutation(mutant_str, base_seq):
         mutation = mutation.strip()
         if not mutation:
             continue
-        
+
         match = re.match(r'([A-Z])(\d+)([A-Z])', mutation)
         if not match:
             return f"ERROR: Invalid single mutation format in '{mutation}' of full mutant '{mutant_str}'"
-        
+
         try:
             original_aa = match.group(1)
             position = int(match.group(2))
             mutated_aa = match.group(3)
-            
+
             idx = position - 1
             if idx < 0 or idx >= len(base_seq):
                 return f"ERROR: Position {position} out of bounds ({len(base_seq)}) in mutation '{mutation}'"
-            
+
             expected_aa_at_pos = base_seq[idx]
             if expected_aa_at_pos != original_aa:
                 return (f"ERROR: Expected '{original_aa}' at position {position} in mutation '{mutation}', "
@@ -75,7 +75,7 @@ def process_and_check_csv(file_path, target_sequence):
     if not os.path.exists(file_path):
         print(f"ERROR: File path '{file_path}' does not exist. Please check the file path.")
         return None
-    
+
     try:
         df = pd.read_csv(file_path)
         print(f"Successfully read file '{file_path}'.")
@@ -88,7 +88,7 @@ def process_and_check_csv(file_path, target_sequence):
     except Exception as e:
         print(f"!!! An unknown error occurred while reading the file: {e} !!!")
         return None
-    
+
     if 'mutated_sequence' and 'DMS_score' in df.columns:
         raw_data = df[['mutant', 'mutated_sequence', 'DMS_score']].copy()
         raw_data.rename(columns={'mutated_sequence': 'sequence', 'DMS_score': 'label'}, inplace=True)

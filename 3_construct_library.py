@@ -42,9 +42,9 @@ def check_env(env_name):
     print(f"Checking for Conda environment: {env_name}...")
     try:
         result = subprocess.run(
-            ["conda", "info", "--envs"], 
-            check=True, 
-            capture_output=True, 
+            ["conda", "info", "--envs"],
+            check=True,
+            capture_output=True,
             text=True
         )
 
@@ -69,23 +69,23 @@ def run_first_stage():
     print(f"Output Directory: {embeddings_path}")
 
     command = [
-        "conda", 
-        "run", 
-        "-n", 
-        env_name, 
-        "python", 
-        script, 
-        "--mutants", 
-        args.mutants, 
-        "--output", 
+        "conda",
+        "run",
+        "-n",
+        env_name,
+        "python",
+        script,
+        "--mutants",
+        args.mutants,
+        "--output",
         embeddings_path
     ]
 
     try:
         subprocess.run(
-            command, 
-            check=True, 
-            capture_output=True, 
+            command,
+            check=True,
+            capture_output=True,
             text=True
         )
         print("Embeddings extraction successful.")
@@ -132,14 +132,14 @@ def run_second_stage():
     print(f"Sequence Length: {len(target_sequence)}")
     print(f"Reference Protein: {target_name}")
     print("-" * 30)
-    
+
     print("[Step 1/5] Performing t-SNE on DHR embeddings...")
     step_start = time.time()
-    
+
     tsne = TSNE(n_components=2, random_state=args.seed)
     tsne_result = tsne.fit_transform(sele_embeddings)
     print(f"  -> t-SNE completed. Duration: {format_time(time.time() - step_start)}")
-    
+
     print("[Step 2/5] Selecting the best cluster number (K=4 to 10)...")
     best_k, best_score = 0, -1
     for k in range(4, 11):
@@ -155,7 +155,7 @@ def run_second_stage():
         data = pd.DataFrame({'cluster': cluster_labels, 'sequence': sele_sequences, 'fitness': sele_fitness})
 
         selected_sequences, selected_fitness = [], []
-        
+
         top_in_each_cluster = data.loc[data.groupby('cluster')['fitness'].idxmax()]
         selected_sequences.extend(top_in_each_cluster['sequence'].tolist())
         selected_fitness.extend(top_in_each_cluster['fitness'].tolist())
@@ -173,7 +173,7 @@ def run_second_stage():
                         break
                     additional_allocation[cluster] += 1
                     remaining_to_allocate -= 1
-            
+
             for cluster, count in additional_allocation.items():
                 if count > 0:
                     cluster_data = data[data['cluster'] == cluster].sort_values('fitness', ascending=False)
@@ -209,11 +209,11 @@ def run_second_stage():
                 row = [freqs.get(aa, 0) for aa in aa_list]
                 mutation_matrix.append(row)
                 mutation_pos.append(i+1)
-        
+
         diversity = 0
         for res in range(len(mutation_matrix)):
             diversity += entropy(mutation_matrix[res], base=2)
-        
+
         objective = np.mean(fitness) + lam * diversity
         return diversity, objective, mutation_matrix, mutation_pos
 
@@ -233,7 +233,7 @@ def run_second_stage():
             while candidate in current_sequences:
                 candidate = random.choice(sele_sequences)
             new_sequences[idx] = candidate
-            
+
             new_fitness = current_fitness.copy()
             new_fitness[idx] = sele_fitness[sele_sequences.index(candidate)]
             new_diversity, new_objective, _, _ = objective_function(new_sequences, new_fitness, lam)
@@ -266,7 +266,7 @@ def run_second_stage():
     lambda_list = np.arange(0.01, 1.01, 0.01)
     starting_sequences, starting_fitness = init_library(clusters)
     iterations = max(len(data_df), 2000)
-    
+
     futures = [optimization.remote(starting_sequences, starting_fitness, lam, args.seed, iterations=iterations) for lam in lambda_list]
 
     sequences_history, fitness_history, diversity_history = [], [], []
@@ -300,7 +300,7 @@ def run_second_stage():
         'font.sans-serif': ['DejaVu Sans'],
         'axes.titlesize': 28,
         'axes.labelsize': 26,
-        'xtick.labelsize': 24, 
+        'xtick.labelsize': 24,
         'ytick.labelsize': 24,
         'figure.figsize': (8, 6),
         'savefig.bbox': 'tight',
@@ -311,7 +311,7 @@ def run_second_stage():
     z = sele_fitness
 
     stat, x_edges, y_edges, binnumber = binned_statistic_2d(x, y, z, statistic='mean', bins=50)
-    plt.imshow(np.flipud(stat.T), extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], 
+    plt.imshow(np.flipud(stat.T), extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]],
             cmap='RdBu_r', aspect='auto', interpolation='nearest', alpha=0.8)
 
     cbar = plt.colorbar()
@@ -319,7 +319,7 @@ def run_second_stage():
     cbar.set_label("Predicted fitness", fontsize=26, rotation=270, labelpad=25)
 
     plt.scatter([tsne_result[idx, 0] for idx in selected_indices],
-                [tsne_result[idx, 1] for idx in selected_indices], 
+                [tsne_result[idx, 1] for idx in selected_indices],
                 c='#963B79', s=30, marker='^')
 
     plt.xlabel("t-SNE 1")
@@ -334,7 +334,7 @@ def run_second_stage():
 
     fig_length = max(len(mutation_pos) // 3, 12)
     logomaker.Logo(
-        mutation_df, color_scheme='NajafabadiEtAl2017', 
+        mutation_df, color_scheme='NajafabadiEtAl2017',
         shade_below=0.5, fade_below=0.5, figsize=([fig_length, 3])
     )
 
@@ -424,7 +424,7 @@ if __name__ == "__main__":
     if not check_env(env_name):
         print(f"Please create and install the required dependencies into the Conda environment '{env_name}' first.")
         sys.exit(1)
-    
+
     try:
         run_first_stage()
         library = run_second_stage()
@@ -437,7 +437,7 @@ if __name__ == "__main__":
 
     end_total_time = time.time()
     total_elapsed = end_total_time - start_total_time
-    
+
     print_section_header("SCRIPT COMPLETED SUCCESSFULLY")
     print(f"All stages finished.")
     print(f"Total Execution Time: {format_time(total_elapsed)}")
