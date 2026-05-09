@@ -34,18 +34,24 @@ Alternatively, you can manually download the model parameters (`models.zip`) fro
 ### Step 1: Data Preparation
 Please strictly refer to `TARGET.fasta` and `TARGET.csv` in the `relavdep/data/target_sequence` and `relavdep/data/mutation_data` directories for target protein sequence and mutation data preparation. Here and below, `TARGET` refers to the target protein name.
 
+Prepare mutation constraints with:
+
+```
+python 0_prepare_inputs.py --pdb_id TARGET --sequence SEQUENCE --output relavdep/data/mutation_constraint/TARGET.npz --illegal_pos "10,25" --legal_mut "A30V,G42D"
+```
+
 ### Step 2: Reward Model Preparation
 
 Supervised fine-tune the reward model via:
 
 ```
-python 1_supervised_training.py --fasta relavdep/data/target_sequence/TARGET.fasta --data relavdep/data/mutation_data/TARGET.csv --output outputs/TARGET
+python 1_train_reward_model.py --fasta relavdep/data/target_sequence/TARGET.fasta --data relavdep/data/mutation_data/TARGET.csv --output outputs/TARGET
 ```
-Run `python 1_supervised_training.py -h` to view all optional arguments. Upon completion, the following information and files will be obtained:
+Run `python 1_train_reward_model.py -h` to view all optional arguments. Upon completion, the following information and files will be obtained:
 
 - Parameters to be used in Step 3:
   - `TARGET.pth`: Parameters of the reward model
-  - `TARGET.npz`: Mutation site constraints
+  - `TARGET.npz`: Mutation site constraints. If you already have a prepared `.npz` file containing `illegal` and `legal` arrays, pass it with `--constraint` to skip beneficial mutation prediction.
   - `n_layer`: MLP Layer Count (Only provided after cross-validation)
 
 - Parameter to be used in Step 4:
@@ -55,30 +61,36 @@ Run `python 1_supervised_training.py -h` to view all optional arguments. Upon co
 Apply the RelaVDEP model to evolve the target protein via:
 
 ```
-python 2_directed_evolution.py --fasta relavdep/data/target_sequence/TARGET.fasta --rm_params outputs/TARGET/TARGET.pth --constraint relavdep/data/mutation_constraint/TARGET.npz --output outputs/TARGET
+python 2_run_directed_evolution.py --fasta relavdep/data/target_sequence/TARGET.fasta --rm_params outputs/TARGET/TARGET.pth --constraint relavdep/data/mutation_constraint/TARGET.npz --output outputs/TARGET
 ```
 
 Here, reward model parameters (`--rm_params`) and mutation constraints (`--constraint`) are obtained in step 2.
 
-Run `python 2_directed_evolution.py -h` to get optional arguments. After completing this step, the following files will be obtained:
+Run `python 2_run_directed_evolution.py -h` to get optional arguments. After completing this step, the following files will be obtained:
 
 - `checkpoint.pth`: Checkpoint during RelaVDEP execution
-- `events.out.tfevents.*`: Training logs of RelaVDEP
+- Weights & Biases run files: Training logs of RelaVDEP
 - `mutants.csv`: All mutants obtained through virtual directed evolution
 - `replay_buffer.pkl`: Replay buffer of RelaVDEP
 
 ### Step 4: Mutant Library Construction
 Before executing this step, please clone the repository `Dense-Homolog-Retrieval.git` into `scripts/` directory and build `fastMSA` environment following the official instructions ([Dense-Homolog-Retrieval](https://github.com/ml4bio/Dense-Homolog-Retrieval)). Then, download the checkpoints (`dhr2_ckpt.zip`) in the official repository and unzip it directly into `scripts/Dense-Homolog-Retrieval/` directory to obtain `dhr_cencoder.pt` and `dhr_qencoder.pt`.
 
+Alternatively, run the full workflow with:
+
+```
+bash run_pipeline.sh --target TARGET
+```
+
 Construct the optimized mutant library via:
 
 ```
-python 3_construct_library.py  --fasta relavdep/data/target_sequence/TARGET.fasta --mutants outputs/TARGET/mutants.csv --output outputs/TARGET/ --cutoff cutoff
+python 3_build_mutant_library.py --fasta relavdep/data/target_sequence/TARGET.fasta --mutants outputs/TARGET/mutants.csv --output outputs/TARGET/ --cutoff cutoff
 ```
 
 Here, the fitness cutoff (`--cutoff`) is obtained in step 2.
 
-Run `python 3_construct_library.py -h` to get optional arguments. After completing this step, the following files will be obtained:
+Run `python 3_build_mutant_library.py -h` to get optional arguments. After completing this step, the following files will be obtained:
 
 - `library.csv`: **Optimized mutant library (the final result containing recommended mutants)**
 - `library.png`: Distribution of the selected mutants in 2D space

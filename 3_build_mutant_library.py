@@ -418,7 +418,7 @@ if __name__ == "__main__":
 
     assert os.path.exists(args.fasta), "!!! Input protein sequence does not exist !!!"
     target_name, target_sequence = read_fasta(args.fasta)
-    assert os.path.exists(args.mutants), "!!! Mutation data does not exist, please run 2_directed_evolution.py first !!!"
+    assert os.path.exists(args.mutants), "!!! Mutation data does not exist, please run 2_run_directed_evolution.py first !!!"
     os.makedirs(args.output, exist_ok=True)
 
     if not check_env(env_name):

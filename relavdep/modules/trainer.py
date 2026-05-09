@@ -5,7 +5,6 @@ import torch
 import pickle
 import time
 import numpy as np
-from torch.utils.tensorboard import SummaryWriter
 from .network import *
 from .utils._functions import set_worker_seed
 
@@ -14,7 +13,6 @@ class Trainer:
     def __init__(self, config, initial_checkpoint):
         self.config = config
         set_worker_seed(config.seed)
-        self.writer = SummaryWriter(config.output_path)
 
         self.model = Network(self.config)
         self.model.set_weights(copy.deepcopy(initial_checkpoint["weights"]))
@@ -52,15 +50,8 @@ class Trainer:
                                             "total_loss": losses[0], "policy_loss": losses[1],
                                             "value_loss": losses[2], "reward_loss": losses[3]})
 
-            self.writer.add_scalar('Training worker/Learning_rate', self.optimizer.param_groups[0]["lr"], self.training_step)
-            self.writer.add_scalar('Training worker/Total_loss', losses[0], self.training_step)
-            self.writer.add_scalar('Training worker/Policy_loss', losses[1], self.training_step)
-            self.writer.add_scalar('Training worker/Value_loss', losses[2], self.training_step)
-            self.writer.add_scalar('Training worker/Reward_loss', losses[3], self.training_step)
-
             if self.config.train_delay:
                 time.sleep(self.config.train_delay)
-        self.writer.close()
 
     def train_loop(self, batch):
         idx_batch, obs_batch, act_batch, reward_batch, value_batch, policy_batch, grad_batch, weight_batch = batch

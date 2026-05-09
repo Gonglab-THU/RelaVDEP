@@ -9,7 +9,7 @@ import timeit
 import ray
 import numpy as np
 import torch
-from torch.utils.tensorboard import SummaryWriter
+import wandb
 
 from relavdep.modules import (
     config,
@@ -43,6 +43,10 @@ parser.add_argument('--n_sim', type=int, default=1200, help='Number of MCTS simu
 parser.add_argument('--train_delay', type=int, default=2, help='Training delay (default: %(default)s)')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (default: %(default)s)')
 parser.add_argument('--seed', type=int, default=0, help='Random seed (default: %(default)s)')
+parser.add_argument('--wandb_project', type=str, default='RelaVDEP', help='Weights & Biases project name (default: %(default)s)')
+parser.add_argument('--wandb_entity', type=str, default=None, help='Weights & Biases entity/team name')
+parser.add_argument('--wandb_name', type=str, default=None, help='Weights & Biases run name')
+parser.add_argument('--wandb_mode', type=str, default=None, choices=['online', 'offline', 'disabled'], help='Weights & Biases run mode')
 args = parser.parse_args()
 
 assert os.path.exists(args.fasta), "!!! Fasta file does not exist !!!"
@@ -109,7 +113,7 @@ class VirtualDE:
             self.config, self.checkpoint, self.config.seed + seed) for seed in range(self.config.n_player)
         ]
 
-        print(f"Training losses and testing performance are logged in TensorBoard, with the logging file saved to: {os.path.abspath(args.output)}.")
+        print(f"Training losses and testing performance are logged to Weights & Biases, with local files saved to: {os.path.abspath(args.output)}.")
         self.predictor_worker._predict.remote(self.shared_storage_worker, self.manager_worker)
         [worker._play.remote(self.shared_storage_worker, self.replay_buffer_worker, self.manager_worker) for worker in self.player_workers]
         self.training_worker._train.remote(self.shared_storage_worker, self.replay_buffer_worker)
@@ -117,13 +121,24 @@ class VirtualDE:
         self.logging(gpu_per_worker if self.config.test_on_gpu else 0)
 
     def logging(self, num_gpus_per_worker):
-        writer = SummaryWriter(args.output)
-        print(f"View training results with: tensorboard --logdir {os.path.abspath(args.output)}.")
+        wandb_kwargs = {
+            "project": args.wandb_project,
+            "name": args.wandb_name or self.config.task_name,
+            "dir": args.output,
+            "config": vars(args),
+        }
+        if args.wandb_entity:
+            wandb_kwargs["entity"] = args.wandb_entity
+        if args.wandb_mode:
+            wandb_kwargs["mode"] = args.wandb_mode
+        wandb.init(**wandb_kwargs)
+        print("View training results in Weights & Biases.")
         self.test_worker = player.Player.options(num_gpus=num_gpus_per_worker).remote(self.config, self.checkpoint, self.config.seed)
         self.test_worker._play.remote(self.shared_storage_worker, None, self.manager_worker, test=True)
 
         keys = ["training_step", "total_reward", "mean_value", "max_reward",
-                "episode_length", "num_played_games", "num_reanalysed_games"]
+                "episode_length", "num_played_games", "num_reanalysed_games",
+                "learning_rate", "total_loss", "policy_loss", "value_loss", "reward_loss"]
 
         info = ray.get(self.shared_storage_worker.get_info.remote(keys))
         while info['training_step'] < 1:
@@ -134,13 +149,21 @@ class VirtualDE:
 
         try:
             while info["training_step"] < self.config.training_steps:
-                writer.add_scalar('Testing worker/Total Reward', info['total_reward'], test_step)
-                writer.add_scalar('Testing worker/Mean Value', info['mean_value'], test_step)
-                writer.add_scalar('Testing worker/Episode Length', info['episode_length'], test_step)
-                writer.add_scalar('Testing worker/Max Reward', info['max_reward'], test_step)
-
-                writer.add_scalar('Self-play workers/Num Played Games', info['num_played_games'], test_step)
-                writer.add_scalar('Self-play workers/Nnum Reanalysed Games', info['num_reanalysed_games'], test_step)
+                wandb.log({
+                    "Testing worker/Total Reward": info['total_reward'],
+                    "Testing worker/Mean Value": info['mean_value'],
+                    "Testing worker/Episode Length": info['episode_length'],
+                    "Testing worker/Max Reward": info['max_reward'],
+                    "Self-play workers/Num Played Games": info['num_played_games'],
+                    "Self-play workers/Num Reanalysed Games": info['num_reanalysed_games'],
+                    "Training worker/Learning Rate": info['learning_rate'],
+                    "Training worker/Total Loss": info['total_loss'],
+                    "Training worker/Policy Loss": info['policy_loss'],
+                    "Training worker/Value Loss": info['value_loss'],
+                    "Training worker/Reward Loss": info['reward_loss'],
+                    "training_step": info['training_step'],
+                    "test_step": test_step,
+                }, step=info['training_step'])
 
                 test_step += 1
                 if self.config.test_delay:
@@ -149,7 +172,7 @@ class VirtualDE:
         except KeyboardInterrupt:
             pass
 
-        writer.close()
+        wandb.finish()
         self.terminate_workers()
 
     def terminate_workers(self):

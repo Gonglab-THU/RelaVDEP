@@ -31,6 +31,7 @@ parser.add_argument('--n_fold', type=int, default=5, help='Number of CV folds (d
 parser.add_argument('--seed', type=int, default=42, help='Random seed (default: %(default)s)')
 parser.add_argument('--init_lr', type=float, default=1e-3, help='Learning rate (default: %(default)s)')
 parser.add_argument('--cross_val', action='store_true', default=False, help='Perform cross validation (default: %(default)s)')
+parser.add_argument('--constraint', type=str, default=None, help='Prepared mutation constraint file (.npz). If provided, skip beneficial mutation prediction.')
 args = parser.parse_args()
 
 print(f"{'=' * 60}")
@@ -41,6 +42,10 @@ raw_data = process_and_check_csv(args.data, target_sequence)
 if raw_data is None:
     raise ValueError("!!! Data loading error. Please verify the file format !!!")
 os.makedirs(args.output, exist_ok=True)
+if args.constraint:
+    assert os.path.exists(args.constraint), "!!! Constraint file does not exist !!!"
+    with np.load(args.constraint) as prepared_constraint:
+        assert {'illegal', 'legal'}.issubset(prepared_constraint.files), "!!! Constraint file must contain 'illegal' and 'legal' arrays !!!"
 
 set_worker_seed(args.seed)
 g = torch.Generator()
@@ -412,56 +417,62 @@ try:
     s5_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s5_end - s5_start:.2f}s")
 
-    print(">>> Stage 6: Extract predicted beneficial mutations.")
-    s6_start = timeit.default_timer()
+    if args.constraint:
+        print(">>> Stage 6: Skip beneficial mutation prediction.")
+        cst_file = args.constraint
+        s6_end = timeit.default_timer()
+        print(f"Using prepared constraint file: {cst_file}")
+    else:
+        print(">>> Stage 6: Extract predicted beneficial mutations.")
+        s6_start = timeit.default_timer()
 
-    all_single_mutations = []
-    for i, original_residue in enumerate(target_sequence):
-        for residue in list(A2int.keys()):
-            if residue != original_residue:
-                mutation_name = f"{original_residue}{i + 1}{residue}"
-                mutated_sequence = target_sequence[:i] + residue + target_sequence[i+1:]
-                all_single_mutations.append({'mutant': mutation_name, 'sequence': mutated_sequence})
+        all_single_mutations = []
+        for i, original_residue in enumerate(target_sequence):
+            for residue in list(A2int.keys()):
+                if residue != original_residue:
+                    mutation_name = f"{original_residue}{i + 1}{residue}"
+                    mutated_sequence = target_sequence[:i] + residue + target_sequence[i+1:]
+                    all_single_mutations.append({'mutant': mutation_name, 'sequence': mutated_sequence})
 
-    mutations_df = pd.DataFrame(all_single_mutations)
-    pred_scores = []
+        mutations_df = pd.DataFrame(all_single_mutations)
+        pred_scores = []
 
-    for mutant in tqdm(mutations_df['sequence']):
-        with torch.no_grad():
-            mut_data = base_model.inference(mutant)
-            mut_data = dict_to_device(mut_data, device=next(model.parameters()).device)
-            score = model(wt_data, mut_data)
-        pred_scores.append(score.item())
+        for mutant in tqdm(mutations_df['sequence']):
+            with torch.no_grad():
+                mut_data = base_model.inference(mutant)
+                mut_data = dict_to_device(mut_data, device=next(model.parameters()).device)
+                score = model(wt_data, mut_data)
+            pred_scores.append(score.item())
 
-    mutations_df['fitness'] = pred_scores
-    mutations_df = mutations_df.sort_values(by='fitness', ascending=False)
-    mutations_df = mutations_df.reset_index(drop=True)
-    result_df = mutations_df[mutations_df['fitness'] > pred_fitness[0]].copy()
+        mutations_df['fitness'] = pred_scores
+        mutations_df = mutations_df.sort_values(by='fitness', ascending=False)
+        mutations_df = mutations_df.reset_index(drop=True)
+        result_df = mutations_df[mutations_df['fitness'] > pred_fitness[0]].copy()
 
-    legal, illegal = [], []
-    for mutant in result_df['mutant']:
-        pos = int(mutant[1:-1]) - 1
-        res = A2int[mutant[-1]]
-        action = pos * 20 + res + 1
-        legal.append(action)
+        legal, illegal = [], []
+        for mutant in result_df['mutant']:
+            pos = int(mutant[1:-1]) - 1
+            res = A2int[mutant[-1]]
+            action = pos * 20 + res + 1
+            legal.append(action)
 
-    cst_file = os.path.join(cst_path, f'{target_name}.npz')
-    np.savez(cst_file, illegal=illegal, legal=legal)
+        cst_file = os.path.join(cst_path, f'{target_name}.npz')
+        np.savez(cst_file, illegal=illegal, legal=legal)
 
-    s6_end = timeit.default_timer()
-    print(f"Stage completed. Duration: {s6_end - s6_start:.2f}s")
+        s6_end = timeit.default_timer()
+        print(f"Stage completed. Duration: {s6_end - s6_start:.2f}s")
 
     print(f"All processes completed. Duration: {s6_end - s1_start:.2f}s")
     print(f"{'=' * 60}")
     print("** Next Steps: Parameters for Subsequent Scripts **")
     print("------------------------------------------------------------")
-    print("1. For 2_directed_evolution.py (Virtual Directed Evolution), add the following arguments:")
+    print("1. For 2_run_directed_evolution.py (Virtual Directed Evolution), add the following arguments:")
     if args.cross_val:
         print(f"--n_layer {best_layer} \\")
     print(f"--rm_params {rm_params} \\")
     print(f"--constraint {cst_file}")
     print("------------------------------------------------------------")
-    print("2. For 3_construct_library.py (Mutant Library Construction), add the following argument:")
+    print("2. For 3_build_mutant_library.py (Mutant Library Construction), add the following argument:")
     print(f"--cutoff {pred_fitness[0]:.4f}")
     print(f"{'=' * 60}")
 except Exception as e:
