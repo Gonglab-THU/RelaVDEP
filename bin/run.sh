@@ -15,7 +15,7 @@ mkdir -p ${output_dir}
 # params
 fasta_fpath=${PROJECT_DIR}/relavdep/data/target_sequence/avGFP.fasta
 constraint=${PROJECT_DIR}/relavdep/data/mutation_constraint/avGFP.npz
-rm_params=${output_dir}/avGFP.pth
+rm_params=${PROJECT_DIR}/outputs/avGFP/avGFP.pth
 
 export CUDA_VISIBLE_DEVICES=${device_ids}
 ngpu=$(echo "$device_ids" | awk -F',' '{print NF}')
