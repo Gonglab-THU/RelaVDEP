@@ -11,7 +11,12 @@ class RewardModel:
         set_worker_seed(config.seed)
         self.device = torch.device('cuda' if config.predict_on_gpu else 'cpu')
         self.base_model = BaseModel(config.data_dir, self.device)
-        self.fitness_model = FitnessModel(n_layer=config.n_layer)
+        if config.rm_type == "large":
+            self.fitness_model = LargeFitnessModel()
+        elif config.rm_type == "small":
+            self.fitness_model = FitnessModel(n_layer=config.n_layer)
+        else:
+            raise ValueError(f"Invalid reward model type: {config.rm_type}")
         best_dict = torch.load(config.rm_params, map_location=torch.device(self.device))
         self.fitness_model.load_state_dict(best_dict)
         self.fitness_model.eval().to(self.device)

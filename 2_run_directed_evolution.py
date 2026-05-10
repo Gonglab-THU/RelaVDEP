@@ -48,6 +48,7 @@ parser = argparse.ArgumentParser(description='Reinforcement Learning assisted Di
 parser.add_argument('--fasta', type=str, required=True, help='Protein sequence')
 parser.add_argument('--rm_params', type=str, required=True, help='Supervised fine-tuned reward model parameters')
 parser.add_argument('--constraint', type=str, default=None, help='Constraint file (.npz format)')
+parser.add_argument('--rm_type', type=str, default='small', choices=['large', 'small'], help='Reward model type (default: %(default)s)')
 
 parser.add_argument('--output', type=str, default='outputs', help='Output directory (default: %(default)s)')
 parser.add_argument('--n_layer', type=int, default=2, help='Number of downstream MLP layers (default: %(default)s)')
@@ -69,7 +70,7 @@ parser.add_argument('--batch_size', type=int, default=32, help='Batch size for t
 parser.add_argument('--seed', type=int, default=0, help='Random seed (default: %(default)s)')
 parser.add_argument('--save_buffer', action='store_true', help='Save replay buffer to output directory (default: disabled)')
 parser.add_argument('--wandb_project', type=str, default='RelaVDEP', help='Weights & Biases project name (default: %(default)s)')
-parser.add_argument('--wandb_mode', type=str, default='offline', choices=['online', 'offline', 'disabled'], help='Weights & Biases run mode')
+parser.add_argument('--wandb_mode', type=str, default='offline', choices=['online', 'offline', 'disabled'], help='Weights & Biases run mode (default: %(default)s)')
 args = parser.parse_args()
 
 assert os.path.exists(args.fasta), "!!! Fasta file does not exist !!!"
