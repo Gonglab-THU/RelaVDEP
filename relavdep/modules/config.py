@@ -29,6 +29,12 @@ class Config(BaseConfig):
         self.n_layer = args.n_layer
         self.num_unroll_steps = args.max_mut // 2
         self.td_steps = args.max_mut
+        self.learning_rate = args.learning_rate
+        self.training_steps = args.training_steps
+        self.warmup_steps = args.warmup_steps
+        self.lr_decay_rate = args.lr_decay_rate
+        self.lr_decay_steps = args.lr_decay_steps
+        self.checkpoint_interval = args.checkpoint_interval
 
     def visit_softmax_temperature_fn(self, trained_steps):
         if trained_steps < 0.5 * self.training_steps:

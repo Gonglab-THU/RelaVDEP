@@ -25,6 +25,7 @@ class BaseConfig:
         # trainer
         self.training_steps = 20000
         self.learning_rate = 5e-4
+        self.warmup_steps = 0
         self.lr_decay_rate = 0.9
         self.lr_decay_steps = 1000
         self.checkpoint_interval = 200
@@ -38,7 +39,7 @@ class BaseConfig:
         self.temp_threshold = None
 
         # replay buffer
-        self.buffer_size = 4000
+        self.buffer_size = 1000
         self.prob_alpha = 0.5
 
         # devices

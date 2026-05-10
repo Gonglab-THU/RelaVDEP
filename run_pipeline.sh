@@ -23,8 +23,6 @@ Options:
   --batch-size INT             Batch size passed to steps 1 and 2. Default: 32
   --cross-val                  Enable cross validation in step 1.
   --wandb-project NAME         Weights & Biases project for step 2. Default: RelaVDEP
-  --wandb-entity NAME          Weights & Biases entity/team for step 2.
-  --wandb-name NAME            Weights & Biases run name for step 2.
   --wandb-mode MODE            Weights & Biases mode: online, offline, or disabled.
   -h, --help                   Show this help message.
 EOF
@@ -104,14 +102,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --wandb-project)
       wandb_project="$2"
-      shift 2
-      ;;
-    --wandb-entity)
-      wandb_entity="$2"
-      shift 2
-      ;;
-    --wandb-name)
-      wandb_name="$2"
       shift 2
       ;;
     --wandb-mode)

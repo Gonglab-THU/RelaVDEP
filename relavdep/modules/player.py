@@ -9,7 +9,9 @@ from .environment import Environment
 from .utils._functions import set_worker_seed
 
 class PlayHistory:
-    def __init__(self):
+    def __init__(self, player_id=None):
+        self.player_id = player_id
+        self.play_id = None
         self.observation_history = []
         self.action_history = []
         self.reward_history = []
@@ -30,8 +32,9 @@ class PlayHistory:
 
 @ray.remote
 class Player:
-    def __init__(self, config, initial_checkpoint, local_seed):
+    def __init__(self, config, initial_checkpoint, local_seed, player_id=None):
         self.config = config
+        self.player_id = player_id
         set_worker_seed(local_seed)
         self.model = Network(config)
         self.model.set_weights(initial_checkpoint["weights"])
@@ -67,7 +70,7 @@ class Player:
                 continue
 
     def play_game(self, manager, temperature, temp_threshold, add_exploration_noise):
-        play_history = PlayHistory()
+        play_history = PlayHistory(self.player_id)
         observation = self.mut_env.reset()
         play_history.action_history.append(0)
         play_history.observation_history.append(observation)

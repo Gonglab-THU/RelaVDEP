@@ -16,6 +16,11 @@ class ReplayBuffer:
         self.num_played_games = initial_checkpoint["num_played_games"]
         self.total_samples = sum([len(play_history.root_values) for
                                   play_history in self.buffer.values()])
+        self.sequence_records = {}
+        for play_id, play_history in self.buffer.items():
+            if not hasattr(play_history, "play_id") or play_history.play_id is None:
+                play_history.play_id = play_id
+            self.record_sequences(play_history)
 
     def save_play(self, play_history, shared_storage=None):
         all_trajectories = [value.action_history for _, value in self.buffer.items()] if self.buffer else []
@@ -28,7 +33,9 @@ class ReplayBuffer:
             play_history.priorities = np.array(priorities, dtype='float32')
             play_history.play_priority = np.max(play_history.priorities)
 
+            play_history.play_id = self.num_played_games
             self.buffer[self.num_played_games] = play_history
+            self.record_sequences(play_history)
             self.num_played_games += 1
             self.total_samples += len(play_history.root_values)
 
@@ -142,16 +149,26 @@ class ReplayBuffer:
             self.buffer[play_idx] = play_history
 
     def output_sequences(self):
-        [sequences, fitness, mutants] = [[] for _ in range(3)]
-        for _, value in self.buffer.items():
-            for i in range(len(value.action_history) - 1):
-                sequences.append(value.observation_history[i+1].seq)
-                fitness.append(value.reward_history[i+1])
-                mutants.append(self.get_mutation(self.config.sequence, value.observation_history[i+1].seq))
-
-        sequence_data = pd.DataFrame({"mutant": mutants, "sequence": sequences, "fitness": fitness})
-        sequence_data = sequence_data.sort_values(by="fitness", ascending=False).drop_duplicates(subset="sequence")
+        sequence_data = pd.DataFrame(
+            self.sequence_records.values(),
+            columns=["mutant", "sequence", "fitness", "player_id", "play_id"]
+        )
+        sequence_data = sequence_data.sort_values(by="fitness", ascending=False)
         sequence_data.to_csv(os.path.join(self.config.output_path, 'mutants.csv'), index=False)
+
+    def record_sequences(self, play_history):
+        for i in range(len(play_history.action_history) - 1):
+            sequence = play_history.observation_history[i+1].seq
+            fitness = play_history.reward_history[i+1]
+            current_record = self.sequence_records.get(sequence)
+            if current_record is None or fitness > current_record["fitness"]:
+                self.sequence_records[sequence] = {
+                    "mutant": self.get_mutation(self.config.sequence, sequence),
+                    "sequence": sequence,
+                    "fitness": fitness,
+                    "player_id": getattr(play_history, "player_id", None),
+                    "play_id": getattr(play_history, "play_id", None),
+                }
 
     def get_mutation(self, wt_seq, mut_seq):
         mutation = []

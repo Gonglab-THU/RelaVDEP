@@ -7,6 +7,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
+import wandb
 
 from tqdm import tqdm
 from sklearn.model_selection import KFold
@@ -32,6 +33,8 @@ parser.add_argument('--seed', type=int, default=42, help='Random seed (default: 
 parser.add_argument('--init_lr', type=float, default=1e-3, help='Learning rate (default: %(default)s)')
 parser.add_argument('--cross_val', action='store_true', default=False, help='Perform cross validation (default: %(default)s)')
 parser.add_argument('--constraint', type=str, default=None, help='Prepared mutation constraint file (.npz). If provided, skip beneficial mutation prediction.')
+parser.add_argument('--wandb_project', type=str, default='RelaVDEP', help='Weights & Biases project name (default: %(default)s)')
+parser.add_argument('--wandb_mode', type=str, default='offline', choices=['online', 'offline', 'disabled'], help='Weights & Biases run mode')
 args = parser.parse_args()
 
 print(f"{'=' * 60}")
@@ -51,6 +54,16 @@ set_worker_seed(args.seed)
 g = torch.Generator()
 g.manual_seed(args.seed)
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
+wandb_kwargs = {
+    "project": args.wandb_project,
+    "name": f"{target_name}-reward-model",
+    "dir": args.output,
+    "config": vars(args),
+}
+if args.wandb_mode:
+    wandb_kwargs["mode"] = args.wandb_mode
+wandb.init(**wandb_kwargs)
 
 ###### 1. Extract embeddings ######
 
@@ -75,6 +88,7 @@ for target, sequence in tqdm(zip(all_targets, all_sequences), total=len(all_targ
 
 s1_end = timeit.default_timer()
 print(f"Stage completed. Duration: {s1_end - s1_start:.2f}s")
+wandb.log({"Stages/Embedding Duration": s1_end - s1_start})
 
 ###### 2. Cross-Validation ######
 
@@ -236,7 +250,7 @@ def cross_validation(train_val_data, splitor, test_loader):
             stop_step = 0
             train_losses, val_losses, test_losses = [], [], []
 
-            for _ in range(args.epochs):
+            for epoch in range(args.epochs):
                 train_loss = train_step(model, optimizer, train_loader)
                 train_losses.append(train_loss)
 
@@ -246,6 +260,16 @@ def cross_validation(train_val_data, splitor, test_loader):
 
                 test_loss = test_step(model, test_loader)
                 test_losses.append(test_loss)
+
+                wandb.log({
+                    "Cross validation/MLP Layer Count": n_layer,
+                    "Cross validation/Fold": k + 1,
+                    "Cross validation/Epoch": epoch + 1,
+                    "Cross validation/Train Loss": train_loss,
+                    "Cross validation/Validation Loss": val_loss,
+                    "Cross validation/Test Metric": test_loss,
+                    "Cross validation/Learning Rate": optimizer.param_groups[0]["lr"],
+                })
 
                 losses = pd.DataFrame({"Train": train_losses, "Validation": val_losses, "Test": test_losses})
                 losses.to_csv(os.path.join(args.output, f'cv/layer_{n_layer}/fold_{k+1}.csv'), index=False)
@@ -284,8 +308,9 @@ def normal_training(model, train_loader, val_loader, finetune=False):
     train_losses, val_losses = [], []
 
     pbar = tqdm(range(args.epochs), desc='Training' if not finetune else 'Fine-tuning')
+    stage_name = 'Fine-tuning' if finetune else 'Training'
 
-    for _ in range(args.epochs):
+    for epoch in range(args.epochs):
         train_loss = train_step(model, optimizer, train_loader, finetune)
         train_losses.append(train_loss)
 
@@ -299,6 +324,14 @@ def normal_training(model, train_loader, val_loader, finetune=False):
             torch.save(model.state_dict(), rm_params)
         else:
             stop_step += 1
+
+        wandb.log({
+            f"{stage_name}/Epoch": epoch + 1,
+            f"{stage_name}/Train Loss": train_loss,
+            f"{stage_name}/Validation Loss": val_loss,
+            f"{stage_name}/Best Validation Loss": best_loss,
+            f"{stage_name}/Learning Rate": optimizer.param_groups[0]["lr"],
+        })
 
         pbar.update(1)
         if stop_step >= 15:
@@ -334,6 +367,10 @@ else:
 
 s2_end = timeit.default_timer()
 print(f"Stage completed. Duration: {s2_end - s2_start:.2f}s")
+wandb.log({
+    "Stages/Layer Selection Duration": s2_end - s2_start,
+    "Reward model/Best Layer": best_layer,
+})
 
 model = FitnessModel(best_layer)
 model_dict = model.state_dict().copy()
@@ -371,6 +408,7 @@ try:
 
     s3_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s3_end - s3_start:.2f}s")
+    wandb.log({"Stages/Training Duration": s3_end - s3_start})
 
     model.load_state_dict(torch.load(rm_params, map_location=torch.device('cpu')))
     model.to(device)
@@ -388,6 +426,7 @@ try:
 
     s4_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s4_end - s4_start:.2f}s")
+    wandb.log({"Stages/Fine-tuning Duration": s4_end - s4_start})
 
     print(">>> Stage 5: Predicting fitness for test mutants.")
     s5_start = timeit.default_timer()
@@ -413,15 +452,21 @@ try:
     test_data['pred'] = pred_fitness[1:]
     test_spearman = test_data['label'].corr(test_data['pred'], 'spearman')
     print(f"Spearman correlation of validation set: {test_spearman:.2f}")
+    wandb.log({
+        "Reward model/Test Spearman": test_spearman,
+        "Reward model/Wild Type Fitness": pred_fitness[0],
+    })
 
     s5_end = timeit.default_timer()
     print(f"Stage completed. Duration: {s5_end - s5_start:.2f}s")
+    wandb.log({"Stages/Test Prediction Duration": s5_end - s5_start})
 
     if args.constraint:
         print(">>> Stage 6: Skip beneficial mutation prediction.")
         cst_file = args.constraint
         s6_end = timeit.default_timer()
         print(f"Using prepared constraint file: {cst_file}")
+        wandb.log({"Stages/Beneficial Mutation Prediction Skipped": True})
     else:
         print(">>> Stage 6: Extract predicted beneficial mutations.")
         s6_start = timeit.default_timer()
@@ -461,8 +506,14 @@ try:
 
         s6_end = timeit.default_timer()
         print(f"Stage completed. Duration: {s6_end - s6_start:.2f}s")
+        wandb.log({
+            "Stages/Beneficial Mutation Prediction Skipped": False,
+            "Stages/Beneficial Mutation Prediction Duration": s6_end - s6_start,
+            "Reward model/Predicted Beneficial Mutations": len(result_df),
+        })
 
     print(f"All processes completed. Duration: {s6_end - s1_start:.2f}s")
+    wandb.log({"Stages/Total Duration": s6_end - s1_start})
     print(f"{'=' * 60}")
     print("** Next Steps: Parameters for Subsequent Scripts **")
     print("------------------------------------------------------------")
@@ -477,3 +528,5 @@ try:
     print(f"{'=' * 60}")
 except Exception as e:
     print(f"!!! An unexpected error occurred: {e} !!!")
+finally:
+    wandb.finish()
