@@ -23,26 +23,10 @@ from relavdep.modules import (
     player,
     network
 )
+from relavdep.modules.utils._format import format_duration, print_section
 
 os.environ["RAY_memory_monitor_refresh_ms"] = "0"
 os.environ["RAY_memory_usage_threshold"] = "1.0"
-
-
-def format_duration(seconds):
-    seconds = int(seconds)
-    hours, remainder = divmod(seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    if hours:
-        return f"{hours:d}h {minutes:02d}m {seconds:02d}s"
-    if minutes:
-        return f"{minutes:d}m {seconds:02d}s"
-    return f"{seconds:d}s"
-
-
-def print_section(title):
-    print(f"\n{'=' * 60}")
-    print(title)
-    print(f"{'=' * 60}")
 
 parser = argparse.ArgumentParser(description='Reinforcement Learning assisted Directed Evolution for Proteins')
 parser.add_argument('--fasta', type=str, required=True, help='Protein sequence')
