@@ -21,7 +21,7 @@ export CUDA_VISIBLE_DEVICES=${device_ids}
 ngpu=$(echo "$device_ids" | awk -F',' '{print NF}')
 
 # baseline
-python ${PROJECT_DIR}/2_run_directed_evolution.py \
+python -u ${PROJECT_DIR}/2_run_directed_evolution.py \
     --fasta ${fasta_fpath} \
     --rm_params ${rm_params} \
     --constraint ${constraint} \
