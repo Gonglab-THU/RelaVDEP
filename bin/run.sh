@@ -8,8 +8,7 @@ fi
 PROJECT_DIR=$(cd "$(dirname $0)" && pwd)/../
 
 device_ids=$1
-run_name=$2
-output_dir=${PROJECT_DIR}/outputs/avGFP/${run_name}
+output_dir=$2
 mkdir -p ${output_dir}
 
 # params
