@@ -31,8 +31,4 @@ python -u ${PROJECT_DIR}/2_run_directed_evolution.py \
     --n_player 6 \
     --n_sim 1200 \
     --train_delay 2 \
-    --log_interval 50 \
-    --learning_rate 0.001 \
-    --warmup_steps 1000 \
-    --lr_decay_rate 0.95 \
     --seed 42 \
