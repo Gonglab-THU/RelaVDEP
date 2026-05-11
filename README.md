@@ -102,6 +102,22 @@ Important outputs:
 - Weights & Biases run files: training logs.
 - `replay_buffer.pkl`: replay buffer, only written when `--save_buffer` is used.
 
+### Optional: Run Script
+
+For convenience, `bin/run.sh` provides an example command for running Step 3:
+
+```bash
+bash bin/run.sh <cuda_device_ids> <output_dir>
+```
+
+For example:
+
+```bash
+bash bin/run.sh 0,1 outputs/TARGET/evo_run1
+```
+
+Please update the target-specific paths and parameters inside `bin/run.sh` before using it for a new protein.
+
 ### Step 4: Mutant Library Construction
 
 Before running this step, clone [Dense-Homolog-Retrieval](https://github.com/ml4bio/Dense-Homolog-Retrieval) into the `scripts/` directory and build the `fastMSA` Conda environment following its official instructions. Then download `dhr2_ckpt.zip` from the official repository and extract it into `scripts/Dense-Homolog-Retrieval/` to obtain `dhr_cencoder.pt` and `dhr_qencoder.pt`.
@@ -127,22 +143,6 @@ Important outputs:
 - `frequency.png`: Mutation frequency of the selected mutants
 
 RelaVDEP uses the zero-shot version of [SPIRED-Stab](https://www.nature.com/articles/s41467-024-51776-x) as a filter to predict stability ($\Delta\Delta G$ and $\Delta T_m$) and foldability ($pLDDT$) for the mutant library. We also recommend using [ESMFold](https://www.science.org/doi/10.1126/science.ade2574) and [OpenFold](https://www.nature.com/articles/s41592-024-02272-z) as additional filters to further improve evaluation reliability.
-
-### Optional: Run Script
-
-For convenience, `bin/run.sh` provides an example command for running Step 3:
-
-```bash
-bash bin/run.sh <cuda_device_ids> <run_name>
-```
-
-For example:
-
-```bash
-bash bin/run.sh 0,1 avGFP_test
-```
-
-Please update the target-specific paths and parameters inside `bin/run.sh` before using it for a new protein.
 
 ## Acknowledgements
 
