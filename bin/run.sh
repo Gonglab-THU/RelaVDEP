@@ -19,6 +19,8 @@ rm_params=${PROJECT_DIR}/outputs/avGFP/avGFP.pth
 
 export CUDA_VISIBLE_DEVICES=${device_ids}
 ngpu=$(echo "$device_ids" | awk -F',' '{print NF}')
+
+# baseline
 python ${PROJECT_DIR}/2_run_directed_evolution.py \
     --fasta ${fasta_fpath} \
     --rm_params ${rm_params} \
@@ -34,3 +36,4 @@ python ${PROJECT_DIR}/2_run_directed_evolution.py \
     --learning_rate 0.001 \
     --warmup_steps 1000 \
     --lr_decay_rate 0.95 \
+    --seed 42 \
