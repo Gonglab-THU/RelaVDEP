@@ -205,8 +205,8 @@ class VirtualDE:
             info = ray.get(self.shared_storage_worker.get_info.remote(keys))
         print(f"First training step received after {format_duration(timeit.default_timer() - wait_start)}.")
         print(
-            f"{'step':>8} | {'progress':>8} | {'games':>8} | {'reward':>10} | "
-            f"{'max':>10} | {'total loss':>10} | {'learning rate':>10} | {'elapsed':>14}"
+            f"{'step':>8} | {'progress':>8} | {'reward':>10} | {'max':>10} | "
+            f"{'games':>8} | {'loss':>10} | {'lr':>10} | {'elapsed':>12}"
         )
 
         test_step = 0
@@ -238,12 +238,12 @@ class VirtualDE:
                     print(
                         f"{info['training_step']:8d} | "
                         f"{progress:8.1%} | "
-                        f"{info['num_played_games']:8d} | "
                         f"{info['total_reward']:10.4f} | "
                         f"{info['max_reward']:10.4f} | "
+                        f"{info['num_played_games']:8d} | "
                         f"{info['total_loss']:10.4f} | "
                         f"{info['learning_rate']:10.2e} | "
-                        f"{format_duration(elapsed):>14}"
+                        f"{format_duration(elapsed):>12}"
                     )
 
                 test_step += 1
