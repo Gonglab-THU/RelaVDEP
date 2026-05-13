@@ -24,22 +24,22 @@ class BaseConfig:
 
         # trainer
         self.training_steps = 20000
-        self.learning_rate = 5e-4
+        self.learning_rate = 0.001
         self.warmup_steps = 0
-        self.lr_decay_rate = 0.9
+        self.lr_decay_rate = 0.95
         self.lr_decay_steps = 1000
-        self.checkpoint_interval = 200
+        self.checkpoint_interval = 250
         self.weight_decay = 1e-4
         self.value_loss_weight = 1.0
         self.test_delay = 5
         self.play_delay = 0.1
-        self.reanalyse_delay = 10
+        self.reanalyse_delay = 5
 
         # player
         self.temp_threshold = None
 
         # replay buffer
-        self.buffer_size = 1000
+        self.buffer_size = 5000
         self.prob_alpha = 0.5
 
         # devices
