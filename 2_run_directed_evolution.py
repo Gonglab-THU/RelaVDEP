@@ -266,7 +266,11 @@ class VirtualDE:
     def terminate_workers(self):
         print_section("Stage 4: Save Outputs and Terminate Workers")
         print("Writing final mutant sequences...")
-        self.replay_buffer_worker.output_sequences.remote()
+        sequence_output = ray.get(self.replay_buffer_worker.output_sequences.remote())
+        print(
+            f"Mutant sequences saved to: {os.path.abspath(sequence_output['path'])} "
+            f"({sequence_output['num_sequences']} records)"
+        )
 
         if args.save_buffer:
             print("Saving replay buffer...")

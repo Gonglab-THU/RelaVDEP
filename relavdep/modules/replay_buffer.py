@@ -149,12 +149,23 @@ class ReplayBuffer:
             self.buffer[play_idx] = play_history
 
     def output_sequences(self):
+        for play_id, play_history in self.buffer.items():
+            if not hasattr(play_history, "play_id") or play_history.play_id is None:
+                play_history.play_id = play_id
+            self.record_sequences(play_history)
+
         sequence_data = pd.DataFrame(
             self.sequence_records.values(),
             columns=["mutant", "sequence", "fitness", "player_id", "play_id"]
         )
+        output_path = os.path.join(self.config.output_path, 'mutants.csv')
+        if sequence_data.empty:
+            raise RuntimeError(
+                "No mutant sequences were recorded; refusing to write an empty mutants.csv."
+            )
         sequence_data = sequence_data.sort_values(by="fitness", ascending=False)
-        sequence_data.to_csv(os.path.join(self.config.output_path, 'mutants.csv'), index=False)
+        sequence_data.to_csv(output_path, index=False)
+        return {"path": output_path, "num_sequences": len(sequence_data)}
 
     def record_sequences(self, play_history):
         for i in range(len(play_history.action_history) - 1):
