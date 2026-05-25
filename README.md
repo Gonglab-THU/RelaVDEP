@@ -88,9 +88,12 @@ Here, `--rm_params` and `--constraint` are obtained from Step 2.
 Useful options:
 
 - `--rm_type {small,large}`: choose the reward model type.
+- `--init_checkpoint`: initialize the policy/value network from a previous RelaVDEP checkpoint or state dict.
+- `--max_mut`: set the maximum number of mutations per self-play episode.
+- `--n_sim`: set the number of MCTS simulations per move.
+- `--buffer_size`: set the replay buffer size.
+- `--learning_rate`: set the trainer learning rate.
 - `--log_interval`: control console progress logging frequency.
-- `--warmup_steps`: enable learning-rate warmup before decay.
-- `--lr_decay_steps` and `--lr_decay_rate`: control learning-rate decay.
 - `--save_buffer`: save `replay_buffer.pkl`; disabled by default.
 
 Run `python 2_run_directed_evolution.py -h` to view all optional arguments.
