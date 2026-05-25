@@ -2,7 +2,7 @@ import time
 import ray
 import torch
 from .utils._models import *
-from .utils._functions import set_worker_seed
+from .utils._functions import mutation, set_worker_seed
 
 @ray.remote
 class RewardModel:
@@ -31,6 +31,21 @@ class RewardModel:
     def inference(self, seq):
         data = self.base_model.inference(seq)
         return data
+
+    def score_single_mutations(self, sequence, actions, topk=100):
+        wt_data = self.inference(sequence)
+        scored_actions = []
+        for action in actions:
+            action = int(action)
+            mut_seq = mutation(sequence, action)
+            mut_data = self.inference(mut_seq)
+            fitness = self.pred_fitness(wt_data, mut_data)
+            scored_actions.append((action, fitness))
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+        scored_actions = sorted(scored_actions, key=lambda x: x[1], reverse=True)
+        return scored_actions[:topk]
 
     def _predict(self, shared_storage, manager):
         while ray.get(shared_storage.get_info.remote("training_step")) < self.config.training_steps:

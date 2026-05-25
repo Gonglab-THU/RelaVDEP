@@ -2,6 +2,7 @@ import os
 import esm
 import copy
 import torch
+import torch_geometric.data as GeoData
 from .utils._functions import *
 
 class Environment:
@@ -10,6 +11,11 @@ class Environment:
         self.device = device
 
     def init_model(self):
+        if self.config.network_type == "conv":
+            self.esm_model = None
+            self.esm2_alphabet = None
+            self.esm_batch_converter = None
+            return
         model_path = os.path.join(self.config.data_dir, 'esm2_t33_650M_UR50D.pt')
         self.esm_model, self.esm2_alphabet = esm.pretrained.load_model_and_alphabet(model_path)
         self.esm_batch_converter = self.esm2_alphabet.get_batch_converter()
@@ -39,7 +45,7 @@ class Environment:
         return False
 
     def get_observation(self, curr_seq):
-        graph = self.config.graph.clone()
+        graph = GeoData.Data() if self.config.network_type == "conv" else self.config.graph.clone()
         graph.node_s = self.get_embedding(curr_seq)
         legal_onehot, avaliable_pos = self.legal_onehot(curr_seq)
         graph.legal_onehot = legal_onehot
@@ -48,6 +54,8 @@ class Environment:
         return graph
 
     def get_embedding(self, seq):
+        if self.config.network_type == "conv":
+            return torch.tensor(seq2onehot(seq), dtype=torch.float32)
         with torch.no_grad():
             _, _, target_tokens = self.esm_batch_converter([('', seq)])
             tmp = self.esm_model(target_tokens.to(self.device),

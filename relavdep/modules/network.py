@@ -153,13 +153,84 @@ class DynamicsNetwork(nn.Module):
         reward = self.dynamics_reward_output(reward)
         return next_hidden_state, reward
 
+class SimpleHiddenState:
+    def __init__(self, node_s, avaliable_pos):
+        self.node_s = node_s
+        self.avaliable_pos = avaliable_pos
+
+    def clone(self):
+        return SimpleHiddenState(self.node_s.clone(), self.avaliable_pos.clone())
+
+class ConvRepresentationNetwork(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.device_anchor = nn.Parameter(torch.empty(0), requires_grad=False)
+
+    def forward(self, observation):
+        seq_onehot = torch.stack([obs.node_s for obs in observation], dim=0)
+        avaliable_pos = torch.stack([obs.avaliable_pos for obs in observation], dim=0)
+
+        device = self.device_anchor.device
+        node_s = seq_onehot.to(device).requires_grad_(True)
+        return SimpleHiddenState(node_s, avaliable_pos.to(device))
+
+class ConvPredictionNetwork(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.output_size = 2 * config.support_size + 1
+        self.policy_head = nn.Linear(20, 20)
+        self.value_head = nn.Linear(20, self.output_size)
+        self.value_head.weight.data.fill_(0)
+        self.value_head.bias.data.fill_(0)
+
+    def forward(self, hidden_state):
+        policy = self.policy_head(hidden_state.node_s)
+        policy = policy * hidden_state.avaliable_pos.unsqueeze(-1)
+        logits = policy.reshape(policy.size(0), -1)
+        value = self.value_head(hidden_state.node_s.mean(dim=1))
+        return logits, value
+
+class ConvDynamicsNetwork(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.output_size = 2 * config.support_size + 1
+        self.reward_head = nn.Linear(20, self.output_size)
+        self.reward_head.weight.data.fill_(0)
+        self.reward_head.bias.data.fill_(0)
+
+    def forward(self, hidden_state, action):
+        device = hidden_state.node_s.device
+        action = action.to(device).long().view(-1)
+        node_s = hidden_state.node_s.clone()
+        avaliable_pos = hidden_state.avaliable_pos.clone()
+        for i in range(action.size(0)):
+            mut_pos = int(torch.div(action[i], 20, rounding_mode='trunc').item())
+            mut_res = int((action[i] % 20).item())
+            node_s[i, mut_pos] = F.one_hot(
+                torch.tensor(mut_res, device=device),
+                num_classes=20,
+            ).float()
+            avaliable_pos[i, mut_pos] = 0
+
+        node_s = node_s.requires_grad_(True)
+        reward = self.reward_head(node_s.mean(dim=1))
+        return SimpleHiddenState(node_s, avaliable_pos), reward
+
 class Network(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.representation_network = RepresentationNetwork(config)
-        self.dynamics_network = DynamicsNetwork(config)
-        self.prediction_network = PredictionNetwork(config)
+        if config.network_type == "conv":
+            self.representation_network = ConvRepresentationNetwork(config)
+            self.dynamics_network = ConvDynamicsNetwork(config)
+            self.prediction_network = ConvPredictionNetwork(config)
+        else:
+            self.representation_network = RepresentationNetwork(config)
+            self.dynamics_network = DynamicsNetwork(config)
+            self.prediction_network = PredictionNetwork(config)
 
     def initial_inference(self, observation: list):
         hidden_state = self.representation_network(observation)

@@ -23,14 +23,20 @@ class ReplayBuffer:
             self.record_sequences(play_history)
 
     def save_play(self, play_history, shared_storage=None):
-        all_trajectories = [value.action_history for _, value in self.buffer.items()] if self.buffer else []
-        if play_history.action_history not in all_trajectories:
+        is_duplicate = any(
+            play_history.action_history == value.action_history
+            for value in self.buffer.values()
+        )
+        if not is_duplicate:
             priorities = []
             for idx, root_value in enumerate(play_history.root_values):
                 priority = np.abs(root_value - self.computer_target_value(play_history, idx)) ** self.config.prob_alpha
                 priorities.append(priority)
 
-            play_history.priorities = np.array(priorities, dtype='float32')
+            play_history.priorities = np.maximum(
+                np.array(priorities, dtype='float32'),
+                1e-6,
+            )
             play_history.play_priority = np.max(play_history.priorities)
 
             play_history.play_id = self.num_played_games
@@ -79,7 +85,11 @@ class ReplayBuffer:
             play_idx_list.append(play_idx)
             play_probs.append(play_history.play_priority)
         play_probs = np.array(play_probs, dtype='float32')
-        play_probs /= np.sum(play_probs)
+        play_prob_sum = np.sum(play_probs)
+        if play_prob_sum <= 0 or not np.isfinite(play_prob_sum):
+            play_probs = np.ones_like(play_probs) / len(play_probs)
+        else:
+            play_probs /= play_prob_sum
         play_probs_dict = {k: v for k, v in zip(play_idx_list, play_probs)}
         selected = np.random.choice(play_idx_list, n_plays, p=play_probs)
         selected_plays = [(idx, self.buffer[idx], play_probs_dict.get(idx)) for idx in selected]
@@ -87,7 +97,11 @@ class ReplayBuffer:
 
     def sample_position(self, play_history):
         position_prob = None
-        position_probs = play_history.priorities / sum(play_history.priorities)
+        priority_sum = np.sum(play_history.priorities)
+        if priority_sum <= 0 or not np.isfinite(priority_sum):
+            position_probs = np.ones_like(play_history.priorities) / len(play_history.priorities)
+        else:
+            position_probs = play_history.priorities / priority_sum
         position_index = np.random.choice(len(position_probs), p=position_probs)
         position_prob = position_probs[position_index]
         return position_index, position_prob

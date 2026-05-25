@@ -30,6 +30,11 @@ class PlayHistory:
         else:
             self.root_values.append(None)
 
+    def store_random_stats(self, legal_actions, action_space):
+        action_prob = 1 / len(legal_actions)
+        self.child_visits.append([action_prob if a in legal_actions else 0 for a in action_space])
+        self.root_values.append(0)
+
 @ray.remote
 class Player:
     def __init__(self, config, initial_checkpoint, local_seed, player_id=None):
@@ -50,13 +55,25 @@ class Player:
             if not test:
                 trained_steps = ray.get(shared_storage.get_info.remote("training_step"))
                 temperature = self.config.visit_softmax_temperature_fn(trained_steps)
-                play_history = self.play_game(manager, temperature, self.config.temp_threshold, True)
-                replay_buffer.save_play.remote(play_history, shared_storage)
+                use_warmup_random = self.config.use_mcts and trained_steps < self.config.mcts_warmup_steps
+                use_mcts = self.config.use_mcts and not use_warmup_random
+                warmup_actions = self.config.mcts_warmup_actions if use_warmup_random else None
+                play_history = self.play_game(
+                    manager,
+                    temperature,
+                    self.config.temp_threshold,
+                    True,
+                    use_mcts,
+                    warmup_actions,
+                )
+                save_ref = replay_buffer.save_play.remote(play_history, shared_storage)
+                if not use_mcts:
+                    ray.get(save_ref)
             elif ray.get(shared_storage.get_info.remote("training_step")) >= 1:
                 max_reward = ray.get(shared_storage.get_info.remote("max_reward"))
                 all_length, all_values, all_rewards = [], [], []
                 for _ in range(5):
-                    play_history = self.play_game(manager, 0.1, self.config.temp_threshold, False)
+                    play_history = self.play_game(manager, 0.1, self.config.temp_threshold, False, self.config.use_mcts, None)
                     values = [value for value in play_history.root_values if value]
                     all_length.append(len(play_history.action_history) - 1)
                     all_values.append(np.mean(values) if values else 0)
@@ -69,7 +86,7 @@ class Player:
             else:
                 continue
 
-    def play_game(self, manager, temperature, temp_threshold, add_exploration_noise):
+    def play_game(self, manager, temperature, temp_threshold, add_exploration_noise, use_mcts, warmup_actions=None):
         play_history = PlayHistory(self.player_id)
         observation = self.mut_env.reset()
         play_history.action_history.append(0)
@@ -79,11 +96,24 @@ class Player:
 
         with torch.no_grad():
             while not done and len(play_history.action_history) <= self.config.max_mutations:
-                root = MCTS(self.config).search(self.model, [observation], self.config.avaliables,
-                                                play_history.action_history, self.mut_env.mut_count,
-                                                add_exploration_noise)
-                action = self.select_action(root, temperature if not temp_threshold
-                                            or len(play_history.action_history) < temp_threshold else 0)
+                if use_mcts:
+                    root = MCTS(self.config).search(self.model, [observation], self.config.avaliables,
+                                                    play_history.action_history, self.mut_env.mut_count,
+                                                    add_exploration_noise)
+                    action = self.select_action(root, temperature if not temp_threshold
+                                                or len(play_history.action_history) < temp_threshold else 0)
+                    legal_actions = None
+                else:
+                    root = None
+                    legal_actions = np.flatnonzero(observation.legal_onehot.reshape(-1).numpy()) + 1
+                    if warmup_actions:
+                        warmup_actions = set(warmup_actions)
+                        warmup_legal_actions = [a for a in legal_actions if a in warmup_actions]
+                        if warmup_legal_actions:
+                            legal_actions = warmup_legal_actions
+                    if len(legal_actions) == 0:
+                        break
+                    action = int(np.random.choice(legal_actions))
                 observation, done = self.mut_env.step(action)
 
                 task = self.get_mut(self.config.sequence, self.mut_env.curr_seq)
@@ -94,7 +124,10 @@ class Player:
                 prediction = ray.get(manager.get_result_item.remote(task))
                 reward = self.mut_env.get_reward(prediction)
 
-                play_history.store_search_stats(root, self.config.action_space)
+                if use_mcts:
+                    play_history.store_search_stats(root, self.config.action_space)
+                else:
+                    play_history.store_random_stats(legal_actions, self.config.action_space)
                 play_history.action_history.append(action)
                 play_history.observation_history.append(observation)
                 play_history.reward_history.append(reward)

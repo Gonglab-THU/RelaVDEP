@@ -127,10 +127,6 @@ class Trainer:
         return priorities, idx_batch, losses
 
     def update_lr(self):
-        if self.config.warmup_steps > 0 and self.training_step < self.config.warmup_steps:
-            lr = self.config.learning_rate * (self.training_step + 1) / self.config.warmup_steps
-        else:
-            decayed_steps = max(self.training_step - self.config.warmup_steps, 0)
-            lr = self.config.learning_rate * self.config.lr_decay_rate ** (decayed_steps / self.config.lr_decay_steps)
+        lr = self.config.learning_rate * self.config.lr_decay_rate ** (self.training_step / self.config.lr_decay_steps)
         for param_group in self.optimizer.param_groups:
             param_group["lr"] = lr
