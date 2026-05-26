@@ -13,7 +13,6 @@ dependencies:
   - pandas
   - biopython
   - biopandas
-  - tensorboard
   - matplotlib
   - seaborn
   - tqdm
@@ -24,6 +23,7 @@ dependencies:
   - pip
   - pip:
       - ray
+      - wandb
       - fair-esm
       - omegaconf
       - hydra-core

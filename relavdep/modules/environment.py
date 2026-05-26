@@ -2,14 +2,20 @@ import os
 import esm
 import copy
 import torch
+import torch_geometric.data as GeoData
 from .utils._functions import *
 
 class Environment:
     def __init__(self, config, device):
         self.config = config
         self.device = device
-    
+
     def init_model(self):
+        if self.config.network_type == "conv":
+            self.esm_model = None
+            self.esm2_alphabet = None
+            self.esm_batch_converter = None
+            return
         model_path = os.path.join(self.config.data_dir, 'esm2_t33_650M_UR50D.pt')
         self.esm_model, self.esm2_alphabet = esm.pretrained.load_model_and_alphabet(model_path)
         self.esm_batch_converter = self.esm2_alphabet.get_batch_converter()
@@ -21,7 +27,7 @@ class Environment:
         self.rewards = []
         self.curr_seq = copy.deepcopy(self.config.sequence)
         return self.get_observation(self.curr_seq)
-    
+
     def step(self, action):
         self.last_seq = copy.deepcopy(self.curr_seq)
         self.mut_count += 1
@@ -32,30 +38,32 @@ class Environment:
         reward = prediction
         self.rewards.append(reward)
         return reward
-    
+
     def mut_done(self):
         if self.mut_count >= self.config.max_mutations:
             return True
         return False
-    
+
     def get_observation(self, curr_seq):
-        graph = self.config.graph.clone()
+        graph = GeoData.Data() if self.config.network_type == "conv" else self.config.graph.clone()
         graph.node_s = self.get_embedding(curr_seq)
         legal_onehot, avaliable_pos = self.legal_onehot(curr_seq)
         graph.legal_onehot = legal_onehot
         graph.avaliable_pos = avaliable_pos
         graph.seq = curr_seq
         return graph
-    
+
     def get_embedding(self, seq):
+        if self.config.network_type == "conv":
+            return torch.tensor(seq2onehot(seq), dtype=torch.float32)
         with torch.no_grad():
             _, _, target_tokens = self.esm_batch_converter([('', seq)])
             tmp = self.esm_model(target_tokens.to(self.device),
-                                 repr_layers=[33], 
+                                 repr_layers=[33],
                                  return_contacts=False)
             embedding = tmp['representations'][33][:, 1:-1, :]
         return embedding.squeeze().clone().detach().cpu()
-    
+
     def legal_onehot(self, curr_seq):
         legal_onehot = np.zeros((self.config.length, 20))
         avaliable_pos = np.ones(self.config.length)
@@ -66,7 +74,7 @@ class Environment:
             legal_onehot[mut_pos] = 0
             avaliable_pos[mut_pos] = 0
         return torch.tensor(legal_onehot, dtype=torch.float32), torch.tensor(avaliable_pos, dtype=torch.float32)
-    
+
     def legal_actions(self):
         legal_action_space = copy.deepcopy(self.config.action_space)
         wt_pos, wt_res = np.where(seq2onehot(self.config.sequence) == 1)

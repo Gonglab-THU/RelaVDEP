@@ -42,7 +42,7 @@ All sequence embeddings of ProteinGym DMS assays (`embeddings.zip`) can be downl
 Alternatively, you can extract embeddings for the specific assay data via:
 
 ```
-python 1_extract_embeddings.py \ 
+python 1_extract_embeddings.py \
     cv_splits=multiples
     cv_scheme=fold_rand_multiples
 ```
@@ -51,7 +51,7 @@ python 1_extract_embeddings.py \
 To evaluate the fitness predictor on the full benchmark, run the following:
 
 ```
-python 2_proteingym_benchmark.py --multirun \ 
+python 2_proteingym_benchmark.py --multirun \
     cv_splits=singles
     cv_scheme=fold_random_5,fold_modulo_5,fold_contiguous_5
 ```

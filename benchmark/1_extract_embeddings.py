@@ -62,7 +62,7 @@ def extract_embeddings(cfg:DictConfig):
     if len(df_ref) == 0:
         print("All embeddings already exist. Exiting.")
         return
-    
+
     device = 'cuda' if cfg.use_gpu and torch.cuda.is_available() else 'cpu'
     base_model = BaseModel(data_dir=cfg.model_path, device=device)
 
@@ -80,18 +80,18 @@ def extract_embeddings(cfg:DictConfig):
             for mutant, sequence in zip(mutants, sequences):
                 mut_data = base_model.inference(sequence)
                 mut_data = dict_to_device(mut_data, 'cpu')
-                
+
                 group = f.create_group(mutant)
                 for key, value in mut_data.items():
                     value_numpy = value.cpu().clone().numpy()
                     group.create_dataset(key, data=value_numpy)
-            
+
             wt_data = base_model.inference(wt_seq)
             wt_data = dict_to_device(wt_data, 'cpu')
             group = f.create_group("WT")
             for key, value in wt_data.items():
                 value_numpy = value.cpu().clone().numpy()
                 group.create_dataset(key, data=value_numpy)
-    
+
 if __name__ == "__main__":
     extract_embeddings()

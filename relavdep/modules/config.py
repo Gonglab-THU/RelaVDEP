@@ -23,13 +23,25 @@ class Config(BaseConfig):
         self.max_mutations = args.max_mut
         self.data_dir = args.data_dir
         self.rm_params = args.rm_params
+        self.rm_type = args.rm_type
         self.n_player = args.n_player
         self.batch_size = args.batch_size
         self.n_gpus = args.n_gpus
         self.n_layer = args.n_layer
-        self.num_unroll_steps = args.max_mut // 2
+        self.num_unroll_steps = args.max_mut
         self.td_steps = args.max_mut
-    
+        self.learning_rate = args.learning_rate
+        self.training_steps = args.training_steps
+        self.buffer_size = args.buffer_size
+
+        # ablation
+        self.reanalyse = args.reanalyse
+        self.use_mcts = args.use_mcts
+        self.network_type = args.network_type
+        self.mcts_warmup_steps = args.mcts_warmup_steps
+        self.mcts_warmup_topk = args.mcts_warmup_topk
+        self.mcts_warmup_actions = []
+
     def visit_softmax_temperature_fn(self, trained_steps):
         if trained_steps < 0.5 * self.training_steps:
             return 1.0

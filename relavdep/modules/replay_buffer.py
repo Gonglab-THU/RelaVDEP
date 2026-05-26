@@ -14,21 +14,34 @@ class ReplayBuffer:
         set_worker_seed(config.seed)
         self.buffer = copy.deepcopy(initial_buffer)
         self.num_played_games = initial_checkpoint["num_played_games"]
-        self.total_samples = sum([len(play_history.root_values) for 
+        self.total_samples = sum([len(play_history.root_values) for
                                   play_history in self.buffer.values()])
+        self.sequence_records = {}
+        for play_id, play_history in self.buffer.items():
+            if not hasattr(play_history, "play_id") or play_history.play_id is None:
+                play_history.play_id = play_id
+            self.record_sequences(play_history)
 
     def save_play(self, play_history, shared_storage=None):
-        all_trajectories = [value.action_history for _, value in self.buffer.items()] if self.buffer else []
-        if play_history.action_history not in all_trajectories:
+        is_duplicate = any(
+            play_history.action_history == value.action_history
+            for value in self.buffer.values()
+        )
+        if not is_duplicate:
             priorities = []
             for idx, root_value in enumerate(play_history.root_values):
                 priority = np.abs(root_value - self.computer_target_value(play_history, idx)) ** self.config.prob_alpha
                 priorities.append(priority)
-            
-            play_history.priorities = np.array(priorities, dtype='float32')
+
+            play_history.priorities = np.maximum(
+                np.array(priorities, dtype='float32'),
+                1e-6,
+            )
             play_history.play_priority = np.max(play_history.priorities)
 
+            play_history.play_id = self.num_played_games
             self.buffer[self.num_played_games] = play_history
+            self.record_sequences(play_history)
             self.num_played_games += 1
             self.total_samples += len(play_history.root_values)
 
@@ -39,16 +52,16 @@ class ReplayBuffer:
 
             if shared_storage:
                 shared_storage.set_info.remote("num_played_games", self.num_played_games)
-    
+
     def sample_batch(self):
         idx_batch, obs_batch, act_batch, reward_batch, value_batch, policy_batch, grad_batch = [], [], [], [], [], [], []
         weight_batch = []
-        
+
         selected_plays = self.sample_plays(self.config.batch_size)
         for play_idx, play_history, play_prob in selected_plays:
             position_idx, position_prob = self.sample_position(play_history)
             values, rewards, policies, actions = self.make_target(play_history, position_idx)
-            
+
             idx_batch.append([play_idx, position_idx])
             obs_batch.append(play_history.observation_history[position_idx])
             act_batch.append(actions)
@@ -57,10 +70,10 @@ class ReplayBuffer:
             policy_batch.append(policies)
             grad_batch.append(len(actions) * [min(self.config.num_unroll_steps, len(play_history.action_history) - position_idx)])
             weight_batch.append(1 / (self.total_samples * play_prob * position_prob))
-        
+
         weight_batch = np.array(weight_batch, dtype='float32') / max(weight_batch)
         return idx_batch, obs_batch, act_batch, reward_batch, value_batch, policy_batch, grad_batch, weight_batch
-    
+
     def sample_reanalysed_play(self):
         idx = np.random.choice(list(self.buffer.keys()))
         play = self.buffer[idx]
@@ -72,19 +85,27 @@ class ReplayBuffer:
             play_idx_list.append(play_idx)
             play_probs.append(play_history.play_priority)
         play_probs = np.array(play_probs, dtype='float32')
-        play_probs /= np.sum(play_probs)
+        play_prob_sum = np.sum(play_probs)
+        if play_prob_sum <= 0 or not np.isfinite(play_prob_sum):
+            play_probs = np.ones_like(play_probs) / len(play_probs)
+        else:
+            play_probs /= play_prob_sum
         play_probs_dict = {k: v for k, v in zip(play_idx_list, play_probs)}
         selected = np.random.choice(play_idx_list, n_plays, p=play_probs)
         selected_plays = [(idx, self.buffer[idx], play_probs_dict.get(idx)) for idx in selected]
         return selected_plays
-    
+
     def sample_position(self, play_history):
         position_prob = None
-        position_probs = play_history.priorities / sum(play_history.priorities)
+        priority_sum = np.sum(play_history.priorities)
+        if priority_sum <= 0 or not np.isfinite(priority_sum):
+            position_probs = np.ones_like(play_history.priorities) / len(play_history.priorities)
+        else:
+            position_probs = play_history.priorities / priority_sum
         position_index = np.random.choice(len(position_probs), p=position_probs)
         position_prob = position_probs[position_index]
         return position_index, position_prob
-    
+
     def make_target(self, play_history, position_idx):
         target_values, target_rewards, target_policies, actions = [], [], [], []
         for idx in range(position_idx, position_idx + self.config.num_unroll_steps + 1):
@@ -97,17 +118,17 @@ class ReplayBuffer:
             elif idx == len(play_history.root_values):
                 target_values.append(0)
                 target_rewards.append(play_history.reward_history[idx])
-                target_policies.append([1 / len(play_history.child_visits[0]) 
+                target_policies.append([1 / len(play_history.child_visits[0])
                                         for _ in range(len(play_history.child_visits[0]))])
                 actions.append(play_history.action_history[idx] - 1)
             else:
                 target_values.append(0)
                 target_rewards.append(0)
-                target_policies.append([1 / len(play_history.child_visits[0]) 
+                target_policies.append([1 / len(play_history.child_visits[0])
                                         for _ in range(len(play_history.child_visits[0]))])
                 actions.append(np.random.choice(self.config.avaliables) - 1)
         return target_values, target_rewards, target_policies, actions
-    
+
     def computer_target_value(self, play_history, idx):
         bootstrap_index = idx + self.config.td_steps
         if bootstrap_index < len(play_history.root_values):
@@ -124,11 +145,11 @@ class ReplayBuffer:
         for i, reward in enumerate(play_history.reward_history[idx + 1: bootstrap_index + 1]):
             value += reward * (self.config.discount ** i)
         return value
-    
+
     def update_priorities(self, priorities, index_batch):
         for i in range(len(index_batch)):
             play_idx, position_index = index_batch[i]
-            
+
             if next(iter(self.buffer)) <= play_idx:
                 priority = priorities[i, :]
                 start_idx = position_index
@@ -140,19 +161,40 @@ class ReplayBuffer:
         if next(iter(self.buffer)) <= play_idx:
             play_history.priorities = np.copy(play_history.priorities)
             self.buffer[play_idx] = play_history
-            
+
     def output_sequences(self):
-        [sequences, fitness, mutants] = [[] for _ in range(3)]
-        for _, value in self.buffer.items():
-            for i in range(len(value.action_history) - 1):
-                sequences.append(value.observation_history[i+1].seq)
-                fitness.append(value.reward_history[i+1])
-                mutants.append(self.get_mutation(self.config.sequence, value.observation_history[i+1].seq))
-        
-        sequence_data = pd.DataFrame({"mutant": mutants, "sequence": sequences, "fitness": fitness})
-        sequence_data = sequence_data.sort_values(by="fitness", ascending=False).drop_duplicates(subset="sequence")
-        sequence_data.to_csv(os.path.join(self.config.output_path, 'mutants.csv'), index=False)
-    
+        for play_id, play_history in self.buffer.items():
+            if not hasattr(play_history, "play_id") or play_history.play_id is None:
+                play_history.play_id = play_id
+            self.record_sequences(play_history)
+
+        sequence_data = pd.DataFrame(
+            self.sequence_records.values(),
+            columns=["mutant", "sequence", "fitness", "player_id", "play_id"]
+        )
+        output_path = os.path.join(self.config.output_path, 'mutants.csv')
+        if sequence_data.empty:
+            raise RuntimeError(
+                "No mutant sequences were recorded; refusing to write an empty mutants.csv."
+            )
+        sequence_data = sequence_data.sort_values(by="fitness", ascending=False)
+        sequence_data.to_csv(output_path, index=False)
+        return {"path": output_path, "num_sequences": len(sequence_data)}
+
+    def record_sequences(self, play_history):
+        for i in range(len(play_history.action_history) - 1):
+            sequence = play_history.observation_history[i+1].seq
+            fitness = play_history.reward_history[i+1]
+            current_record = self.sequence_records.get(sequence)
+            if current_record is None or fitness > current_record["fitness"]:
+                self.sequence_records[sequence] = {
+                    "mutant": self.get_mutation(self.config.sequence, sequence),
+                    "sequence": sequence,
+                    "fitness": fitness,
+                    "player_id": getattr(play_history, "player_id", None),
+                    "play_id": getattr(play_history, "play_id", None),
+                }
+
     def get_mutation(self, wt_seq, mut_seq):
         mutation = []
         for i in range(len(wt_seq)):
@@ -163,7 +205,6 @@ class ReplayBuffer:
 
     def size(self):
         return len(self.buffer)
-    
+
     def get_buffer(self):
         return self.buffer
-    

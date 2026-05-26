@@ -12,7 +12,7 @@ class MinMaxStats:
     def update(self, value):
         self.maximum = max(self.maximum, value)
         self.minimum = min(self.minimum, value)
-    
+
     def normalize(self, value):
         if self.maximum > self.minimum:
             return (value - self.minimum) / (self.maximum - self.minimum)
@@ -34,7 +34,7 @@ class Node:
         if self.visit_count == 0:
             return 0
         return self.value_sum / self.visit_count
-    
+
     def expand(self, actions, reward, logits, hidden_state):
         self.reward = reward
         self.hidden_state = hidden_state
@@ -43,7 +43,7 @@ class Node:
         policy = {a: policy_values[i] for i, a in enumerate(actions)}
         for action, prob in policy.items():
             self.children[action] = Node(prob)
-    
+
     def add_exploration_noise(self, dirichlet_alpha, exploration_fraction):
         actions = list(self.children.keys())
         noise = np.random.dirichlet([dirichlet_alpha] * len(actions))
@@ -65,21 +65,21 @@ class MCTS:
         else:
             value_score = 0
         return prior_score + value_score
-    
+
     def select_child(self, node, min_max_stats):
-        max_ucb_score = max(self.ucb_score(node, child, min_max_stats) 
+        max_ucb_score = max(self.ucb_score(node, child, min_max_stats)
                             for _, child in node.children.items())
-        best_action = np.random.choice([action for action, child in node.children.items() 
+        best_action = np.random.choice([action for action, child in node.children.items()
                                         if self.ucb_score(node, child, min_max_stats) == max_ucb_score])
         return best_action, node.children[best_action]
-    
+
     def backpropagate(self, search_path, value, min_max_stats):
         for node in reversed(search_path):
             node.value_sum += value
             node.visit_count += 1
             min_max_stats.update(node.reward + self.config.discount * node.value())
             value = node.reward + self.config.discount * value
-    
+
     def search(self, model, observation:list, legal_actions, action_history, tree_depth, add_exploration_noise=True):
         root = Node(0)
         hidden_state, reward, logits, value = model.initial_inference(observation)
@@ -88,7 +88,7 @@ class MCTS:
         if add_exploration_noise:
             root.add_exploration_noise(self.config.dirichlet_alpha, self.config.exploration_fraction)
         min_max_stats = MinMaxStats()
-        
+
         for _ in range(self.config.n_sim):
             node = root
             search_path = [node]
@@ -110,9 +110,8 @@ class MCTS:
             node.expand(expanded_actions, reward.item(), logits, hidden_state)
             self.backpropagate(search_path, value.item(), min_max_stats)
         return root
-    
+
     def get_legal_actions(self, legal_actions, action_path):
         mut_pos = [(a - 1) // 20 for a in action_path if a != 0]
         actions = [a for a in legal_actions if (a - 1) // 20 not in mut_pos]
         return actions
-    

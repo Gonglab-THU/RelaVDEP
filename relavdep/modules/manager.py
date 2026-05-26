@@ -12,7 +12,7 @@ class Manager:
 
     def get_tasks_keys(self):
         return list(self.tasks.keys())
-    
+
     def add_task(self, task, wt_seq, mut_seq):
         if task not in self.get_tasks():
             self.tasks[task] = [wt_seq, mut_seq]
@@ -25,18 +25,18 @@ class Manager:
 
     def get_results_keys(self):
         return list(self.results.keys())
-    
+
     def get_result_item(self, task):
         return self.results[task]
-    
+
     def save_result(self, task, fitness):
         self.results[task] = fitness
 
     def get_predictions(self):
         return list(self.predictions.keys())
-    
+
     def get_prediction_item(self, seq):
         return self.predictions[seq]
-    
+
     def save_prediction(self, seq, prediction):
         self.predictions[seq] = prediction
