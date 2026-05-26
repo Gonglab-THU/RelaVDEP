@@ -28,7 +28,3 @@ python -u ${PROJECT_DIR}/2_run_directed_evolution.py \
     --output ${output_dir} \
     --data_dir ${PROJECT_DIR}/models \
     --n_gpus ${ngpu} \
-    --n_player 6 \
-    --n_sim 1200 \
-    --train_delay 2 \
-    --seed 42 \

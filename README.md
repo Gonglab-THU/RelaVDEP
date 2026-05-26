@@ -37,35 +37,37 @@ Alternatively, manually download `models.zip` from [Zenodo](https://doi.org/10.5
 
 ### Step 1: Data Preparation
 
-Prepare the target sequence and mutation data by following the examples in:
+The repository includes avGFP example data:
 
-- `relavdep/data/target_sequence/TARGET.fasta`
-- `relavdep/data/mutation_data/TARGET.csv`
+- `relavdep/data/target_sequence/avGFP.fasta`
+- `relavdep/data/mutation_data/avGFP.csv`
 
-Here and below, `TARGET` refers to the target protein name.
-
-Prepare the fasta file and optional mutation constraints with:
+To regenerate the fasta file and optional mutation constraints, run:
 
 ```bash
-python 0_prepare_inputs.py --pdb_id TARGET --sequence SEQUENCE --legal_pos 10,25,64,66 --illegal_mut A10V,G64D
+python 0_prepare_inputs.py \
+    --pdb_id avGFP \
+    --sequence <SEQUENCE> \
+    --legal_pos 10,26,28,44,46,76,89 \
+    --illegal_pos 65,66,67 \
 ```
 
-This writes the fasta file to `relavdep/data/target_sequence/TARGET.fasta`. If any constraint option is provided, it also writes `relavdep/data/mutation_constraint/TARGET.npz` containing `illegal` and `legal` action arrays.
+This writes the fasta file to `relavdep/data/target_sequence/avGFP.fasta`. If any constraint option is provided, it also writes `relavdep/data/mutation_constraint/avGFP.npz` containing `illegal` and `legal` action arrays.
 
 ### Step 2: Reward Model Preparation
 
 Fine-tune the reward model with supervised mutation data:
 
 ```bash
-python 1_train_reward_model.py --fasta relavdep/data/target_sequence/TARGET.fasta --data relavdep/data/mutation_data/TARGET.csv --output outputs/TARGET
+python 1_train_reward_model.py --fasta relavdep/data/target_sequence/avGFP.fasta --data relavdep/data/mutation_data/avGFP.csv --output outputs/avGFP
 ```
 
 Run `python 1_train_reward_model.py -h` to view all optional arguments. Training metrics are logged to Weights & Biases; use `--wandb_project` and `--wandb_mode` to control logging.
 
 Important outputs:
 
-- `outputs/TARGET/TARGET.pth`: fine-tuned reward model parameters.
-- `relavdep/data/mutation_constraint/TARGET.npz`: mutation constraints inferred from predicted beneficial single mutants, unless `--constraint` is provided.
+- `outputs/avGFP/avGFP.pth`: fine-tuned reward model parameters.
+- `relavdep/data/mutation_constraint/avGFP.npz`: mutation constraints inferred from predicted beneficial single mutants, unless `--constraint` is provided.
 - `n_layer`: best MLP layer count, reported when `--cross_val` is enabled.
 - `cutoff`: predicted wild-type fitness, used as the library construction cutoff in Step 4.
 
@@ -77,13 +79,13 @@ Run virtual directed evolution:
 
 ```bash
 python 2_run_directed_evolution.py \
-    --fasta relavdep/data/target_sequence/TARGET.fasta \
-    --rm_params outputs/TARGET/TARGET.pth \
-    --constraint relavdep/data/mutation_constraint/TARGET.npz \
-    --output outputs/TARGET
+    --fasta relavdep/data/target_sequence/avGFP.fasta \
+    --rm_params outputs/avGFP/avGFP.pth \
+    --constraint relavdep/data/mutation_constraint/avGFP.npz \
+    --output outputs/avGFP
 ```
 
-Here, `--rm_params` and `--constraint` are obtained from Step 2.
+Here, `--rm_params` is obtained from Step 2, and `--constraint` can be generated in Step 1 or inferred in Step 2.
 
 Useful options:
 
@@ -116,10 +118,10 @@ bash bin/run.sh <cuda_device_ids> <output_dir>
 For example:
 
 ```bash
-bash bin/run.sh 0,1 outputs/TARGET/evo_run1
+bash bin/run.sh 0,1 outputs/avGFP/evo_run1
 ```
 
-Please update the target-specific paths and parameters inside `bin/run.sh` before using it for a new protein.
+The script is configured for the avGFP example. Please update the target-specific paths and parameters inside `bin/run.sh` before using it for a new protein.
 
 ### Step 4: Mutant Library Construction
 
@@ -129,9 +131,9 @@ Construct the optimized mutant library:
 
 ```bash
 python 3_build_mutant_library.py \
-    --fasta relavdep/data/target_sequence/TARGET.fasta \
-    --mutants outputs/TARGET/mutants.csv \
-    --output outputs/TARGET \
+    --fasta relavdep/data/target_sequence/avGFP.fasta \
+    --mutants outputs/avGFP/mutants.csv \
+    --output outputs/avGFP \
     --cutoff CUTOFF
 ```
 
